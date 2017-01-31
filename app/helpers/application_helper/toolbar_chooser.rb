@@ -480,8 +480,8 @@ class ApplicationHelper::ToolbarChooser
               container_image_registry ems_infra flavor host container_build infra_networking infra_topology ems_storage
               container_topology middleware_topology cloud_topology middleware_server
               middleware_deployment middleware_datasource middleware_domain middleware_server_group middleware_messaging
-              orchestration_stack resource_pool storage_manager container_template
-              ems_block_storage ems_object_storage timeline usage).include?(@layout)
+              ontap_storage_system orchestration_stack resource_pool storage_manager container_template
+              ems_block_storage ems_object_storage timeline usage ).include?(@layout)
           if ["show_list"].include?(@lastaction)
             return "#{@layout.pluralize}_center_tb"
           else
