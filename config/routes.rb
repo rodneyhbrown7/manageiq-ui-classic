@@ -1199,6 +1199,66 @@ Rails.application.routes.draw do
       )
     },
 
+    :ems_physical_infra                => {
+      :get  => %w(
+        discover
+        download_data
+        ems_physical_infra_form_fields
+        protect
+        show_list
+        tagging_edit
+      ) +
+               compare_get,
+      :post => %w(
+        button
+        create
+        listnav_search_selected
+        protect
+        quick_search
+        show
+        show_list
+        tag_edit_form_field_changed
+        tagging_edit
+        tl_chooser
+        tree_autoload
+        update
+        wait_for_task
+        x_show
+        squash_toggle
+      ) +
+               adv_search_post +
+               compare_post +
+               dialog_runner_post +
+               discover_get_post +
+               exp_post +
+               save_post
+    },
+
+    :physical_server    =>  {
+      :get  =>  %w(
+        download_data
+        perf_top_chart
+        protect
+        show_list
+        show
+        
+      ) + compare_get,
+
+      :post   =>  %w(
+        show_list
+        create
+        update
+
+      )
+    },
+
+    :ems_physical_infra_dashboard      => {
+      :get => %w(
+        show
+        data
+      )
+    },
+
     :ems_container            => {
       :get  => %w(
         download_data
@@ -1244,6 +1304,7 @@ Rails.application.routes.draw do
         show_list
         tagging_edit
         tag_edit_form_field_changed
+        jdbc_drivers
       ) +
                compare_get,
       :post => %w(
