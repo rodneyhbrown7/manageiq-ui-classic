@@ -1,7 +1,12 @@
-class ApplicationHelper::Toolbar::EmsInfrasCenter < ApplicationHelper::Toolbar::Basic
-  button_group('physical_server_vmdb', [
+class ApplicationHelper::Toolbar::PhysicalServerCenter < ApplicationHelper::Toolbar::Basic
+  button_group('ems_physical_infra_vmdb', [
+    button(
+      :refresh_server_summary,
+      'fa fa-repeat fa-lg',
+      N_('Reload Current Display'),
+      nil),
     select(
-      :physical_server_vmdb_choice,
+      :ems_physical_infra_vmdb_choice,
       'fa fa-cog fa-lg',
       t = N_('Configuration'),
       t,
