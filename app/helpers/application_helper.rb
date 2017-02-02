@@ -219,6 +219,9 @@ module ApplicationHelper
       if controller == "ems_infra" && action == "show"
         return ems_infras_path
       end
+      if controller == "ems_physical_infra" && action == "show"
+        return ems_physical_infras_path
+      end      
       if controller == "ems_container" && action == "show"
         return ems_containers_path
       end
@@ -1472,6 +1475,8 @@ module ApplicationHelper
 
   def db_for_quadicon
     case @layout
+    when "ems_physical_infra"
+      :ems    
     when "ems_infra"
       :ems
     when "ems_cloud"
