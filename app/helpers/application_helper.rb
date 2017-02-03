@@ -1387,9 +1387,11 @@ module ApplicationHelper
              ems_middleware
              ems_network
              ems_storage
+             ems_physical_infra
              flavor
              floating_ip
              host
+             physical_server
              host_aggregate
              load_balancer
              middleware_datasource
