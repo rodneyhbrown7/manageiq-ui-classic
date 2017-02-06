@@ -33,9 +33,9 @@ class ApplicationHelper::Toolbar::PhysicalServerCenter < ApplicationHelper::Tool
           :enabled   => false,
           :onwhen    => "2+"),
         button(
-          :physical_server_discover,
-          'fa fa-search fa-lg',
-          t = N_('Discover Infrastructure Providers'),
+          :host_register_nodes,
+          'pficon pficon-add-circle-o fa-lg',
+          t = N_('Register Nodes'),
           t,
           :url   => "/register_nodes",
           :klass => ApplicationHelper::Button::HostRegisterNodes),
@@ -106,9 +106,7 @@ class ApplicationHelper::Toolbar::PhysicalServerCenter < ApplicationHelper::Tool
       'fa fa-shield fa-lg',
       t = N_('Policy'),
       t,
-      :enabled => false,
-      :onwhen  => "1+",
-      :items   => [
+      :items => [
         button(
           :host_protect,
           'pficon pficon-edit fa-lg',
@@ -141,9 +139,7 @@ class ApplicationHelper::Toolbar::PhysicalServerCenter < ApplicationHelper::Tool
       'fa fa-recycle fa-lg',
       t = N_('Lifecycle'),
       t,
-      :enabled => false,
-      :onwhen  => "1+",
-      :items   => [
+      :items => [
         button(
           :host_miq_request_new,
           'pficon pficon-add-circle-o fa-lg',

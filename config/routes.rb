@@ -3216,7 +3216,7 @@ Rails.application.routes.draw do
   controller_routes.each do |controller_name, controller_actions|
     # Default route with no action to controller's index action
     unless [
-      :ems_cloud, :ems_infra, :ems_container, :ems_middleware, :ems_datawarehouse, :ems_network
+      :ems_cloud, :ems_infra, :ems_physical_infra, :ems_container, :ems_middleware, :ems_datawarehouse, :ems_network
     ].include?(controller_name)
       match controller_name.to_s, :controller => controller_name, :action => :index, :via => :get
     end
@@ -3244,10 +3244,11 @@ Rails.application.routes.draw do
   # pure-angular templates
   get '/static/*id' => 'static#show', :format => false
 
-  resources :ems_cloud, :as => :ems_clouds
-  resources :ems_infra, :as => :ems_infras
-  resources :ems_container, :as => :ems_containers
-  resources :ems_middleware, :as => :ems_middlewares
-  resources :ems_datawarehouse, :as => :ems_datawarehouses
-  resources :ems_network, :as => :ems_networks
+  resources :ems_cloud,          :as => :ems_clouds
+  resources :ems_infra,          :as => :ems_infras
+  resources :ems_physical_infra, :as => :ems_physical_infras
+  resources :ems_container,      :as => :ems_containers
+  resources :ems_middleware,     :as => :ems_middlewares
+  resources :ems_datawarehouse,  :as => :ems_datawarehouses
+  resources :ems_network,        :as => :ems_networks
 end
