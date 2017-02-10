@@ -52,6 +52,10 @@ module HostHelper::TextualSummary
   def textual_physical_server
     {:label =>  _("Physical Server"), :value  =>  @record.physical_server.name, :icon =>  "pficon pficon-server", :link => url_for(:controller  =>  'physical_server',  :action =>  'show', :id =>  @record.physical_server.id) }
   end
+  
+  def textual_physical_server
+    {:label =>  _("Physical Server"), :value  =>  @record.physical_server.name, :icon =>  "pficon pficon-server", :link => url_for(:controller  =>  'physical_server',  :action =>  'show', :id =>  @record.physical_server.id) }
+  end
 
   def textual_group_miq_custom_attributes
     TextualGroup.new(_("Custom Attributes"), textual_miq_custom_attributes)
