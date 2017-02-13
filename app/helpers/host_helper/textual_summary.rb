@@ -19,7 +19,7 @@ module HostHelper::TextualSummary
   def textual_group_relationships
     TextualGroup.new(
       _("Relationships"),
-      %i(ems cluster availability_zone used_tenants storages resource_pools vms templates drift_history physical_server)
+      %i(ems cluster availability_zone used_tenants storages resource_pools vms templates drift_history physical_servers)
     )
   end
 
