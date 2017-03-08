@@ -5,39 +5,32 @@ module EmsPhysicalInfraHelper::TextualSummary
   #
 
   def textual_group_properties
-   TextualGroup.new(
-	_("Properties"),
-        %i(hostname ipaddress type port guid)
-   )
+    TextualGroup.new(
+      _("Properties"),
+      %i(hostname ipaddress type port guid)
+    )
   end
 
   def textual_group_relationships
-   TextualGroup.new(
-          _("Relationships"),
- 	  %i(physical_servers datastores vms)
-   )
+    TextualGroup.new(
+      _("Relationships"),
+      %i(physical_servers datastores vms)
+    )
   end
 
   def textual_group_status
-   TextualGroup.new(
-	_("Authentications"),
-        textual_authentications(@ems.authentication_userid_passwords) + %i(refresh_status orchestration_stacks_status)
-   )
+    TextualGroup.new(
+      _("Status"),
+      textual_authentications(@record.authentication_userid_passwords) + %i(refresh_status)
+    )
   end
 
   def textual_group_smart_management
-   TextualGroup.new(
-	_("Smart Management"),
-	%i(zone tags)
-   )
+    TextualTags.new(_("Smart Management"), %i(zone tags))
   end
 
   def textual_group_topology
-    items = %w(topology)
-    i = items.collect { |m| send("textual_#{m}") }.flatten.compact
-    TextualTags.new(
-        _("Topology"), i
-    )
+    TextualGroup.new(_("Overview"), %i(topology))
   end
 
   #
@@ -132,6 +125,7 @@ module EmsPhysicalInfraHelper::TextualSummary
     h
   end
 
+<<<<<<< HEAD
   def textual_used_tenants
     return nil if !@record.respond_to?(:cloud_tenants) || !@record.cloud_tenants
 
@@ -200,7 +194,7 @@ module EmsPhysicalInfraHelper::TextualSummary
   def textual_topology
     {:label => _('Topology'),
      :icon  => "pficon pficon-topology",
-     :link  => url_for(:controller => '/infra_topology', :action => 'show', :id => @ems.id),
+     :link  => url_for(:controller => '/physical_infra_topology', :action => 'show', :id => @record.id),
      :title => _("Show topology")}
   end
 end

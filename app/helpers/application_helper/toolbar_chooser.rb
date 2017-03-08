@@ -473,6 +473,7 @@ class ApplicationHelper::ToolbarChooser
     else
       # show_list and show screens
       unless @in_a_form
+<<<<<<< HEAD
         if %w(auth_key_pair_cloud availability_zone host_aggregate cloud_object_store_object cloud_object_store_container cloud_tenant
               cloud_volume cloud_volume_backup cloud_volume_snapshot configuration_job container_group container_node container_service
               ems_cloud ems_cluster ems_container ems_datawarehouse ems_middleware container_project container_route container_replicator container_image
@@ -482,6 +483,66 @@ class ApplicationHelper::ToolbarChooser
               middleware_deployment middleware_datasource middleware_domain middleware_server_group middleware_messaging
               orchestration_stack resource_pool storage_manager container_template
               ems_block_storage ems_object_storage timeline usage).include?(@layout)
+=======
+        if %w(auth_key_pair_cloud
+              availability_zone
+              host_aggregate
+              cloud_object_store_object
+              cloud_object_store_container
+              cloud_tenant
+              cloud_volume
+              cloud_volume_backup
+              cloud_volume_snapshot
+              configuration_job
+              container_group
+              container_node
+              container_service
+              ems_cloud
+              ems_cluster
+              ems_container
+              ems_datawarehouse
+              ems_middleware
+              container_project
+              container_route
+              container_replicator
+              container_image
+              ems_network
+              security_group
+              floating_ip
+              cloud_subnet
+              network_router
+              network_topology
+              network_port
+              cloud_network
+              load_balancer
+              container_image_registry
+              ems_infra
+              ems_physical_infra
+              flavor
+              host
+              container_build
+              infra_networking
+              infra_topology
+              ems_storage
+              container_topology
+              middleware_topology
+              cloud_topology
+              middleware_server
+              middleware_deployment
+              middleware_datasource
+              middleware_domain
+              middleware_server_group
+              middleware_messaging
+              orchestration_stack
+              physical_infra_topology
+              resource_pool
+              storage_manager
+              container_template
+              ems_block_storage
+              ems_object_storage
+              timeline
+              usage).include?(@layout)
+>>>>>>> d195c54503322ea4cc67f86402af34f7f76fb13b
           if ["show_list"].include?(@lastaction)
             return "#{@layout.pluralize}_center_tb"
           else
