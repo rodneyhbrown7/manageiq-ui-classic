@@ -1,6 +1,8 @@
 ManageIQ.angular.app.controller('mwServerController', MwServerController);
+ManageIQ.angular.app.controller('mwServerGroupController', MwServerGroupController);
 
 MwServerController.$inject = ['$scope', 'miqService' ];
+MwServerGroupController.$inject = ['$scope', 'miqService' ];
 
 /**
  * MwServerController - since there can be only one controller per page due to:
@@ -26,6 +28,14 @@ MwServerController.$inject = ['$scope', 'miqService' ];
  * @constructor
  */
 function MwServerController($scope, miqService) {
+  return MwServerControllerFactory($scope, miqService, false);
+}
+
+function MwServerGroupController($scope, miqService) {
+  return MwServerControllerFactory($scope, miqService, true);
+}
+
+function MwServerControllerFactory($scope, miqService, isGroupDeployment) {
   ManageIQ.angular.scope = $scope;
 
   ManageIQ.angular.rxSubject.subscribe(function(event) {
@@ -65,6 +75,7 @@ function MwServerController($scope, miqService) {
   /////////////////////////////////////////////////////////////////////////
 
   $scope.deployAddModel = {};
+  $scope.deployAddModel.isGroupDeployment = isGroupDeployment;
   $scope.deployAddModel.enableDeployment = true;
   $scope.deployAddModel.forceDeploy = false;
   $scope.deployAddModel.serverId = angular.element('#server_id').val();
@@ -128,6 +139,7 @@ function MwServerController($scope, miqService) {
 }
 
 ManageIQ.angular.app.controller('mwServerOpsController', MwServerOpsController);
+ManageIQ.angular.app.controller('mwServerGroupOpsController', MwServerGroupOpsController);
 
 MwServerOpsController.$inject = ['miqService', 'serverOpsService'];
 
@@ -137,7 +149,16 @@ MwServerOpsController.$inject = ['miqService', 'serverOpsService'];
  * @param serverOpsService
  * @constructor
  */
-function MwServerOpsController( miqService, serverOpsService) {
+function MwServerOpsController(miqService, serverOpsService) {
+  return MwServerOpsControllerFactory(miqService, serverOpsService);
+}
+
+MwServerGroupOpsController.$inject = ['miqService', 'serverGroupOpsService'];
+function MwServerGroupOpsController(miqService, serverGroupOpsService) {
+  return MwServerOpsControllerFactory(miqService, serverGroupOpsService);
+}
+
+function MwServerOpsControllerFactory(miqService, serverOpsService) {
 
     ManageIQ.angular.rxSubject.subscribe(function(event) {
 
@@ -160,12 +181,22 @@ function MwServerOpsController( miqService, serverOpsService) {
 }
 
 ManageIQ.angular.app.service('serverOpsService', ServerOpsService);
+ManageIQ.angular.app.service('serverGroupOpsService', ServerGroupOpsService);
 
 ServerOpsService.$inject = ['$http', '$q'];
-
 function ServerOpsService($http, $q) {
-  this.runOperation = function runOperation(id, operation, timeout) {
-    var errorMsg = _('Error running operation on this server.');
+  return ServerOpsServiceFactory($http, $q, false);
+}
+
+ServerGroupOpsService.$inject = ['$http', '$q'];
+function ServerGroupOpsService($http, $q) {
+  return ServerOpsServiceFactory($http, $q, true);
+}
+
+function ServerOpsServiceFactory($http, $q, isGroup) {
+  var runOperation = function runOperation(id, operation, timeout) {
+    var errorMsg = isGroup ? _('Error running operation on this server.') 
+                           : _('Error running operation on this server group.');
     var deferred = $q.defer();
     var payload = {
       'id': id,
@@ -173,7 +204,8 @@ function ServerOpsService($http, $q) {
       'timeout': timeout
     };
 
-    $http.post('/middleware_server/run_operation', angular.toJson(payload))
+    var url = '/middleware_server' + (isGroup ? '_group' : '') + '/run_operation'
+    $http.post(url, angular.toJson(payload))
       .then(
         function (response) { // success
           var data = response.data;
@@ -194,5 +226,8 @@ function ServerOpsService($http, $q) {
       });
     return deferred.promise;
   }
+  return {
+    runOperation: runOperation
+  };
 }
 

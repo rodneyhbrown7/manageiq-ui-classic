@@ -6,61 +6,72 @@ module HostHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(hostname ipaddress ipmi_ipaddress custom_1 vmm_vendor_display model asset_tag service_tag osinfo
-       power_state lockdown_mode maintenance_mode devices network storage_adapters num_cpu num_cpu_cores
-       cpu_cores_per_socket memory guid)
+    TextualGroup.new(
+      _("Properties"),
+      %i(
+        hostname ipaddress ipmi_ipaddress custom_1 vmm_vendor_display model asset_tag service_tag osinfo
+        power_state lockdown_mode maintenance_mode devices network storage_adapters num_cpu num_cpu_cores
+        cpu_cores_per_socket memory guid
+      )
+    )
   end
 
   def textual_group_relationships
-    %i(ems cluster availability_zone used_tenants storages resource_pools vms templates drift_history)
-  end
-
-  def textual_group_storage_relationships
-    %i(storage_systems storage_volumes logical_disks file_shares)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(ems cluster availability_zone used_tenants storages resource_pools vms templates drift_history physical_servers)
+    )
   end
 
   def textual_group_security
     return nil if @record.is_vmware_esxi?
-    %i(users groups patches firewall_rules ssh_root)
+    TextualGroup.new(_("Security"), %i(users groups patches firewall_rules ssh_root))
   end
 
   def textual_group_configuration
-    %i(guest_applications host_services filesystems advanced_settings)
+    TextualGroup.new(_("Configuration"), %i(guest_applications host_services filesystems advanced_settings))
   end
 
   def textual_group_diagnostics
     return nil unless ::Settings.product.proto
-    %i(esx_logs)
+    TextualGroup.new(_("Diagnostics"), %i(esx_logs))
   end
 
   def textual_group_smart_management
-    %i(tags)
+    TextualTags.new(_("Smart Management"), %i(tags))
+  end
+  
+  def textual_physical_servers
+    {:label =>  _("Physical Server"), :value  =>  @record.physical_server.name, :icon =>  "pficon pficon-server", :link => url_for(:controller  =>  'physical_server',  :action =>  'show', :id =>  @record.physical_server.id) }
   end
 
   def textual_group_miq_custom_attributes
-    textual_miq_custom_attributes
+    TextualGroup.new(_("Custom Attributes"), textual_miq_custom_attributes)
   end
 
   def textual_group_ems_custom_attributes
-    textual_ems_custom_attributes
+    TextualGroup.new(_("VC Custom Attributes"), textual_ems_custom_attributes)
   end
 
   def textual_group_authentications
-    textual_authentications(@record.authentication_userid_passwords + @record.authentication_key_pairs)
+    TextualGroup.new(
+      _("Authentication Status"),
+      textual_authentications(@record.authentication_userid_passwords + @record.authentication_key_pairs)
+    )
   end
 
   def textual_group_cloud_services
-    textual_openstack_nova_scheduler if @record.openstack_host?
+    TextualGroup.new(_("Cloud Services"), textual_openstack_nova_scheduler) if @record.openstack_host?
   end
 
   def textual_group_openstack_service_status
     return nil unless @record.kind_of?(ManageIQ::Providers::Openstack::InfraManager::Host)
-    textual_generate_openstack_status
+    TextualGroup.new(_("OpenStack Service Status"), textual_generate_openstack_status)
   end
 
   def textual_group_openstack_hardware_status
     return nil unless @record.kind_of?(ManageIQ::Providers::Openstack::InfraManager::Host)
-    %i(introspected provision_state)
+    TextualGroup.new(_("Openstack Hardware"), %i(introspected provision_state))
   end
 
   #
@@ -77,7 +88,7 @@ module HostHelper::TextualSummary
       running = {:title => _("Show list of running %{name}") % {:name => x.name},
                  :value => _("Running (%{number})") % {:number => running_count},
                  :icon  => failed_count == 0 && running_count > 0 ? 'pficon pficon-ok' : nil,
-                 :link  => running_count > 0 ? url_for(:controller => controller.controller_name,
+                 :link  => running_count > 0 ? url_for_only_path(:controller => controller.controller_name,
                                                       :action => 'host_services', :id => @record,
                                                       :db => controller.controller_name, :host_service_group => x.id,
                                                       :status => :running) : nil}
@@ -85,7 +96,7 @@ module HostHelper::TextualSummary
       failed = {:title => _("Show list of failed %{name}") % {:name => x.name},
                 :value => _("Failed (%{number})") % {:number => failed_count},
                 :icon  => failed_count > 0 ? 'pficon pficon-error-circle-o' : nil,
-                :link  => failed_count > 0 ? url_for(:controller => controller.controller_name,
+                :link  => failed_count > 0 ? url_for_only_path(:controller => controller.controller_name,
                                                     :action => 'host_services', :id => @record,
                                                     :db => controller.controller_name, :host_service_group => x.id,
                                                     :status => :failed) : nil}
@@ -93,14 +104,14 @@ module HostHelper::TextualSummary
       all = {:title => _("Show list of all %{name}") % {:name => x.name},
              :value => _("All (%{number})") % {:number => all_count},
              :icon  => 'pficon pficon-service',
-             :link  => all_count > 0 ? url_for(:controller => controller.controller_name, :action => 'host_services',
+             :link  => all_count > 0 ? url_for_only_path(:controller => controller.controller_name, :action => 'host_services',
                                               :id => @record, :db => controller.controller_name,
                                               :host_service_group => x.id, :status => :all) : nil}
 
       configuration = {:title => _("Show list of configuration files of %{name}") % {:name => x.name},
                        :icon  => 'fa fa-file-o',
                        :value => _("Configuration (%{number})") % {:number => configuration_count},
-                       :link  => configuration_count > 0 ? url_for(:controller => controller.controller_name,
+                       :link  => configuration_count > 0 ? url_for_only_path(:controller => controller.controller_name,
                                                                   :action => 'filesystems', :id => @record,
                                                                   :db => controller.controller_name,
                                                                   :host_service_group => x.id) : nil}
@@ -139,7 +150,7 @@ module HostHelper::TextualSummary
       h[:image] = "svg/vendor-#{@vmminfo[0][:description].downcase}.svg"
       h[:value] = @vmminfo[0][:description]
       h[:title] = _("Show VMM container information")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'hv_info')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'hv_info')
     end
     h
   end
@@ -178,7 +189,7 @@ module HostHelper::TextualSummary
       end
 
       h[:title] = _("Show OS container information")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'os_info')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'os_info')
     end
     h
   end
@@ -186,7 +197,7 @@ module HostHelper::TextualSummary
   def textual_power_state
     state = @record.state.to_s.downcase
     state = "unknown" if state.blank?
-    {:label => _("Power State"), :image => "100/currentstate-#{state}.png", :value => state}
+    {:label => _("Power State"), :image => "svg/currentstate-#{state}.svg", :value => state}
   end
 
   def textual_lockdown_mode
@@ -200,10 +211,10 @@ module HostHelper::TextualSummary
   def textual_storage_adapters
     return nil if @record.openstack_host?
     num = @record.hardware.nil? ? 0 : @record.hardware.number_of(:storage_adapters)
-    h = {:label => _("Storage Adapters"), :image => "100/sa.png", :value => num}
+    h = {:label => _("Storage Adapters"), :icon => "product product-network_card", :value => num}
     if num > 0
       h[:title] = _("Show %{title} Storage Adapters") % {:title => host_title}
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'storage_adapters')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'storage_adapters')
     end
     h
   end
@@ -214,7 +225,7 @@ module HostHelper::TextualSummary
     h = {:label => _("Network"), :icon => "pficon pficon-network", :value => (num == 0 ? _("N/A") : _("Available"))}
     if num > 0
       h[:title] = _("Show %{title} Network") % {:title => host_title}
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'network')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'network')
     end
     h
   end
@@ -225,7 +236,7 @@ module HostHelper::TextualSummary
          :value => (@devices.nil? || @devices.empty? ? _("None") : @devices.length)}
     if @devices.length > 0
       h[:title] = _("Show %{title} devices") % {:title => host_title}
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'devices')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'devices')
     end
     h
   end
@@ -266,7 +277,7 @@ module HostHelper::TextualSummary
     if cluster && role_allows?(:feature => "ems_cluster_show")
       h[:title] = _("Show this %{host_title}'s %{cluster_title}") %
                   {:host_title => host_title, :cluster_title => title_for_cluster}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => cluster)
+      h[:link]  = url_for_only_path(:controller => 'ems_cluster', :action => 'show', :id => cluster)
     end
     h
   end
@@ -280,7 +291,7 @@ module HostHelper::TextualSummary
     return nil if @record.openstack_host?
     textual_link(@record.resource_pools,
                  :as   => ResourcePool,
-                 :link => url_for(:action => 'show', :id => @record, :display => 'resource_pools'))
+                 :link => url_for_only_path(:action => 'show', :id => @record, :display => 'resource_pools'))
   end
 
   def textual_drift_history
@@ -290,7 +301,7 @@ module HostHelper::TextualSummary
     h     = {:label => label, :icon => "product product-drift", :value => num}
     if num > 0
       h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:action => 'drift_history', :id => @record)
+      h[:link]  = url_for_only_path(:action => 'drift_history', :id => @record)
     end
     h
   end
@@ -304,7 +315,7 @@ module HostHelper::TextualSummary
          :value => (availability_zone.nil? ? _("None") : availability_zone.name)}
     if availability_zone && role_allows?(:feature => "availability_zone_show")
       h[:title] = _("Show this %{title}'s %{label}") % {:title => host_title, :label => label}
-      h[:link]  = url_for(:controller => 'availability_zone', :action => 'show', :id => availability_zone)
+      h[:link]  = url_for_only_path(:controller => 'availability_zone', :action => 'show', :id => availability_zone)
     end
     h
   end
@@ -313,7 +324,7 @@ module HostHelper::TextualSummary
     return nil unless @record.openstack_host?
     textual_link(@record.cloud_tenants,
                  :as   => CloudTenant,
-                 :link => url_for(:action => 'show', :id => @record, :display => 'cloud_tenants'))
+                 :link => url_for_only_path(:action => 'show', :id => @record, :display => 'cloud_tenants'))
   end
 
   def textual_vms
@@ -322,7 +333,7 @@ module HostHelper::TextualSummary
     h     = {:label => label, :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
       h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'vms')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'vms')
     end
     h
   end
@@ -330,50 +341,6 @@ module HostHelper::TextualSummary
   def textual_templates
     return nil if @record.openstack_host?
     @record.miq_templates
-  end
-
-  def textual_storage_systems
-    num = @record.storage_systems_size
-    label = ui_lookup(:tables => "ontap_storage_system")
-    h = {:label => label, :icon => "pficon pficon-volume", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_storage_system_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_storage_systems")
-    end
-    h
-  end
-
-  def textual_storage_volumes
-    num = @record.storage_volumes_size
-    label = ui_lookup(:tables => "ontap_storage_volume")
-    h = {:label => label, :icon => "pficon pficon-volume", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_storage_volume_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_storage_volumes")
-    end
-    h
-  end
-
-  def textual_file_shares
-    num = @record.file_shares_size
-    label = ui_lookup(:tables => "ontap_file_share")
-    h = {:label => label, :icon => "product product-file_share", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_file_share_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_file_shares")
-    end
-    h
-  end
-
-  def textual_logical_disks
-    num = @record.logical_disks_size
-    label = ui_lookup(:tables => "ontap_logical_disk")
-    h = {:label => label, :icon => "fa fa-hdd-o", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_logical_disk_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_logical_disks")
-    end
-    h
   end
 
   def textual_compliance_history
@@ -386,7 +353,7 @@ module HostHelper::TextualSummary
     h = {:label => _("Users"), :icon => "pficon pficon-user", :value => num}
     if num > 0
       h[:title] = n_("Show the User defined on this VM", "Show the Users defined on this VM", num)
-      h[:link]  = url_for(:action => 'users', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:action => 'users', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -398,7 +365,7 @@ module HostHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Group defined on this %{title}", "Show the Groups defined on this %{title}", num) %
         {:title => host_title}
-      h[:link]  = url_for(:action => 'groups', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:action => 'groups', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -410,7 +377,7 @@ module HostHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Firewall Rule defined on this %{title}",
                     "Show the Firewall Rules defined on this %{title}", num) % {:title => host_title}
-      h[:link]  = url_for(:action => 'firewall_rules', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:action => 'firewall_rules', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -427,7 +394,7 @@ module HostHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Patch defined on this %{title}", "Show the Patches defined on this %{title}", num) %
         {:title => host_title}
-      h[:link]  = url_for(:action => 'patches', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:action => 'patches', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -438,7 +405,7 @@ module HostHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Package installed on this %{title}",
                      "Show the Packages installed on this %{title}", num) % {:title => host_title}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'guest_applications', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'guest_applications', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -449,7 +416,7 @@ module HostHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Service installed on this %{title}",
                      "Show the Services installed on this %{title}", num) % {:title => host_title}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'host_services', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'host_services', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -460,7 +427,7 @@ module HostHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the File installed on this %{title}", "Show the Files installed on this %{title}", num) %
         {:title => host_title}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'filesystems', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'filesystems', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -471,7 +438,7 @@ module HostHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Advanced Setting installed on this %{title}",
                      "Show the Advanced Settings installed on this %{title}", num) % {:title => host_title}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'advanced_settings', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'advanced_settings', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -481,7 +448,7 @@ module HostHelper::TextualSummary
     h = {:label => _("ESX Logs"), :icon => "fa fa-file-text-o", :value => (num == 0 ? _("Not Available") : _("Available"))}
     if num > 0
       h[:title] = _("Show %{title} Network") % {:title => host_title}
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'event_logs')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'event_logs')
     end
     h
   end
@@ -489,18 +456,18 @@ module HostHelper::TextualSummary
   def textual_miq_custom_attributes
     attrs = @record.miq_custom_attributes
     return nil if attrs.blank?
-    attrs.collect { |a| {:label => a.name, :value => a.value} }
+    attrs.sort_by(&:name).collect { |a| {:label => a.name, :value => a.value} }
   end
 
   def textual_ems_custom_attributes
     attrs = @record.ems_custom_attributes
     return nil if attrs.blank?
-    attrs.collect { |a| {:label => a.name, :value => a.value} }
+    attrs.sort_by(&:name).collect { |a| {:label => a.name, :value => a.value} }
   end
 
   def textual_openstack_nova_scheduler
     {:label => _("Openstack Nova Scheduler"), :value => openstack_nova_scheduler_value,
-     :link => url_for(:controller => controller.controller_name, :action => 'host_cloud_services', :id => @record)}
+     :link => url_for_only_path(:controller => controller.controller_name, :action => 'host_cloud_services', :id => @record)}
   end
 
   def openstack_nova_scheduler_value

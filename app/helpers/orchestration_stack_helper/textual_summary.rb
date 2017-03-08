@@ -8,15 +8,21 @@ module OrchestrationStackHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(name description type status status_reason)
+    TextualGroup.new(_("Properties"), %i(name description type status status_reason))
   end
 
   def textual_group_lifecycle
-    %i(retirement_date)
+    TextualGroup.new(_("Lifecycle"), %i(retirement_date))
   end
 
   def textual_group_relationships
-    %i(ems_cloud service parent_orchestration_stack child_orchestration_stack orchestration_template instances security_groups cloud_networks parameters outputs resources)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(
+        ems_cloud service parent_orchestration_stack child_orchestration_stack orchestration_template
+        instances security_groups cloud_networks parameters outputs resources
+      )
+    )
   end
 
   #
@@ -48,7 +54,7 @@ module OrchestrationStackHelper::TextualSummary
     else
       h[:value] = service.name
       h[:title] = _("Show this Service")
-      h[:link]  = url_for(:controller => 'service', :action => 'show', :id => service)
+      h[:link]  = url_for_only_path(:controller => 'service', :action => 'show', :id => service)
     end
     h
   end
@@ -64,7 +70,7 @@ module OrchestrationStackHelper::TextualSummary
     elsif num > 1 && role_allows(:feature => "orchestration_stack_show_list")
       label     = _("Child Orchestration Stacks")
       h         = {:label => label, :icon => "product product-orchestration_stack", :value => num}
-      h[:link]  = url_for(:action => 'show', :id => @record.id, :display => 'children')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record.id, :display => 'children')
       h[:title] = _("Show all %{label}") % {:label => label}
       h
     end
@@ -77,7 +83,7 @@ module OrchestrationStackHelper::TextualSummary
     h = {:label => label, :icon => "product product-template", :value => template.name}
     if role_allows?(:feature => "orchestration_templates_view")
       h[:title] = _("Show this Orchestration Template")
-      h[:link] = url_for(:action => 'show', :id => @orchestration_stack, :display => 'stack_orchestration_template')
+      h[:link] = url_for_only_path(:action => 'show', :id => @record, :display => 'stack_orchestration_template')
     end
     h
   end
@@ -87,7 +93,7 @@ module OrchestrationStackHelper::TextualSummary
     num   = @record.number_of(:vms)
     h     = {:label => label, :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
-      h[:link]  = url_for(:action => 'show', :id => @orchestration_stack, :display => 'instances')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'instances')
       h[:title] = _("Show all %{label}") % {:label => label}
     end
     h
@@ -107,7 +113,7 @@ module OrchestrationStackHelper::TextualSummary
     num   = @record.number_of(:parameters)
     h     = {:label => _("Parameters"), :icon => "product product-parameter", :value => num}
     if num > 0
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'parameters', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'parameters', :id => @record)
       h[:title] = _("Show all parameters")
     end
     h
@@ -117,7 +123,7 @@ module OrchestrationStackHelper::TextualSummary
     num   = @record.number_of(:outputs)
     h     = {:label => _("Outputs"), :icon => "product product-output", :value => num}
     if num > 0
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'outputs', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'outputs', :id => @record)
       h[:title] = _("Show all outputs")
     end
     h
@@ -127,7 +133,7 @@ module OrchestrationStackHelper::TextualSummary
     num   = @record.number_of(:resources)
     h     = {:label => _("Resources"), :icon => "product product-resource", :value => num}
     if num > 0
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'resources', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'resources', :id => @record)
       h[:title] = _("Show all resources")
     end
     h

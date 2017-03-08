@@ -755,6 +755,11 @@ module OpsController::OpsRbac
     update_gtl_div("rbac_#{rec_type.pluralize}_list") if pagination_or_gtl_request?
   end
 
+  def allowed_tenant_names
+    current_tenant = User.current_user.current_tenant
+    (current_tenant.descendants + [current_tenant]).map(&:name)
+  end
+
   # Create the view and associated vars for the rbac list
   def rbac_build_list(rec_type)
     @lastaction = "rbac_#{rec_type}s_list"
@@ -763,7 +768,7 @@ module OpsController::OpsRbac
     @ajax_paging_buttons = true
     if params[:ppsetting]                                             # User selected new per page value
       @items_per_page = params[:ppsetting].to_i                       # Set the new per page value
-      @settings[:perpage][@gtl_type.to_sym] = @items_per_page         # Set the per page setting for this gtl type
+      @settings.store_path(:perpage, @gtl_type.to_sym, @items_per_page) # Set the per page setting for this gtl type
     end
     @sortcol = session["rbac_#{rec_type}_sortcol"].nil? ? 0 : @sb["rbac_#{rec_type}_sortcol"].to_i
     @sortdir = session["rbac_#{rec_type}_sortdir"].nil? ? "ASC" : @sb["rbac_#{rec_type}_sortdir"]
@@ -777,7 +782,14 @@ module OpsController::OpsRbac
                     when "role"
                       get_view(MiqUserRole)
                     when "tenant"
-                      get_view(Tenant, :named_scope => :in_my_region)
+                      view, pages = get_view(Tenant, :named_scope => :in_my_region)
+                      unless User.current_user.super_admin_user?
+                        view.table.data.map! do |x|
+                          x['parent_name'] = '' unless allowed_tenant_names.include?(x['parent_name'])
+                          x
+                        end
+                      end
+                      [view, pages]
                     end
 
     @current_page = @pages[:current] unless @pages.nil? # save the current page number
@@ -908,18 +920,20 @@ module OpsController::OpsRbac
 
   def rbac_group_get_details(id)
     @record = @group = MiqGroup.find_by_id(from_cid(id))
-    get_tagdata(@group)
-    # Build the belongsto filters hash
     @belongsto = {}
-    @group.get_belongsto_filters.each do |b|            # Go thru the belongsto tags
-      bobj = MiqFilter.belongsto2object(b)            # Convert to an object
-      next unless bobj
-      @belongsto[bobj.class.to_s + "_" + bobj.id.to_s] = b # Store in hash as <class>_<id> string
-    end
     @filters = {}
-    # Build the managed filters hash
-    [@group.get_managed_filters].flatten.each do |f|
-      @filters[f.split("/")[-2] + "-" + f.split("/")[-1]] = f
+    if @record.present?
+      get_tagdata(@group)
+      # Build the belongsto filters hash
+      @group.get_belongsto_filters.each do |b| # Go thru the belongsto tags
+        bobj = MiqFilter.belongsto2object(b) # Convert to an object
+        next unless bobj
+        @belongsto[bobj.class.to_s + "_" + bobj.id.to_s] = b # Store in hash as <class>_<id> string
+      end
+      # Build the managed filters hash
+      [@group.get_managed_filters].flatten.each do |f|
+        @filters[f.split("/")[-2] + "-" + f.split("/")[-1]] = f
+      end
     end
 
     rbac_group_right_tree(@belongsto.keys)
@@ -1031,6 +1045,10 @@ module OpsController::OpsRbac
     Rbac.filtered(Tenant.in_my_region.where(:id => tenant_id)).present?
   end
 
+  def valid_role?(user_role_id)
+    Rbac::Filterer.filtered_object(user_role_id, :class => MiqUserRole).present?
+  end
+
   # Get variables from group edit form
   def rbac_group_get_form_vars
     if %w(up down).include?(params[:button])
@@ -1039,7 +1057,14 @@ module OpsController::OpsRbac
     else
       @edit[:new][:ldap_groups_user] = params[:ldap_groups_user]  if params[:ldap_groups_user]
       @edit[:new][:description]      = params[:description]       if params[:description]
-      @edit[:new][:role]             = params[:group_role]        if params[:group_role]
+
+      if params[:group_role]
+        if valid_role?(new_role_id = params[:group_role].to_i)
+          @edit[:new][:role] = new_role_id
+        else
+          raise "Invalid group selected."
+        end
+      end
 
       if params[:group_tenant]
         if valid_tenant?(new_tenant_id = params[:group_tenant].to_i)
@@ -1111,7 +1136,8 @@ module OpsController::OpsRbac
 
     # Build roles hash
     @edit[:roles]["<Choose a Role>"] = nil if @record.id.nil?
-    MiqUserRole.all.each do |r|
+
+    Rbac::Filterer.filtered(MiqUserRole).each do |r|
       @edit[:roles][r.name] = r.id
     end
     if @group.miq_user_role.nil? # If adding, set to first role

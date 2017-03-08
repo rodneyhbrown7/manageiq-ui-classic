@@ -205,7 +205,7 @@ class StorageManagerController < ApplicationController
   def show
     @display = params[:display] || "main" unless pagination_or_gtl_request?
 
-    session[:sm_summary_cool] = (@settings[:views][:sm_summary_cool] == "summary")
+    session[:sm_summary_cool] = (settings(:views, :sm_summary_cool) == "summary")
     @summary_view = session[:sm_summary_cool]
     @sm = @record = identify_record(params[:id])
     return if record_no_longer_exists?(@sm)
@@ -214,11 +214,11 @@ class StorageManagerController < ApplicationController
     @showtype = "config"
     drop_breadcrumb({:name => ui_lookup(:tables => "storage_managers"), :url => "/storage_manager/show_list?page=#{@current_page}&refresh=y"}, true)
 
-    if ["download_pdf", "main", "summary_only"].include?(@display)
+    if %w(main summary_only).include?(@display)
       # get_tagdata(StorageManager)
       drop_breadcrumb(:name => _("%{name} (Summary)") % {:name => @sm.name}, :url => "/storage_manager/show/#{@sm.id}")
       @showtype = "main"
-      set_summary_pdf_data if ["download_pdf", "summary_only"].include?(@display)
+      set_summary_pdf_data if @display == 'summary_only'
     end
     @lastaction = "show"
     session[:tl_record_id] = @record.id
@@ -231,7 +231,12 @@ class StorageManagerController < ApplicationController
     process_show_list(:conditions => ["agent_type<>?", "VMDB"])
   end
 
-  private ############################
+  private
+
+  def textual_group_list
+    [%i(properties)]
+  end
+  helper_method :textual_group_list
 
   # Validate the sm record fields
   def valid_record?(sm)

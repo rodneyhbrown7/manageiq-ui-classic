@@ -25,7 +25,6 @@ class StorageController < ApplicationController
     @explorer = true if request.xml_http_request? # Ajax request means in explorer
 
     @gtl_url = "/show"
-    set_summary_pdf_data if "download_pdf" == @display
   end
 
   def show(record = nil)
@@ -74,49 +73,21 @@ class StorageController < ApplicationController
                       :url  => "/storage/x_show/#{@storage.id}?display=hosts")
       @showtype = "hosts"
 
-    when "download_pdf", "main", "summary_only"
+    when "main", "summary_only"
       get_tagdata(@storage)
-      session[:vm_summary_cool] = (@settings[:views][:vm_summary_cool] == "summary")
+      session[:vm_summary_cool] = (settings(:views, :vm_summary_cool) == "summary")
       @summary_view = session[:vm_summary_cool]
       drop_breadcrumb({:name => ui_lookup(:tables => "storages"), :url => "/storage/show_list?page=#{@current_page}&refresh=y"}, true)
       drop_breadcrumb(:name => "%{name} (Summary)" % {:name => @storage.name},
                       :url  => "/storage/x_show/#{@storage.id}?display=main")
       @showtype = "main"
-      set_summary_pdf_data if ["download_pdf", "summary_only"].include?(@display)
+      set_summary_pdf_data if @display == "summary_only"
 
     when "performance"
       @showtype = "performance"
       drop_breadcrumb(:name => _("%{name} Capacity & Utilization") % {:name => @storage.name},
                       :url  => "/storage/x_show/#{@storage.id}?display=#{@display}&refresh=n")
       perf_gen_init_options               # Intialize perf chart options, charts will be generated async
-
-    when "storage_extents"
-      drop_breadcrumb(:name => _(" (All %{tables})") % {:name   => @storage.name,
-                                                        :tables => ui_lookup(:tables => "cim_base_storage_extent")},
-                      :url  => "/storage/x_show/#{@storage.id}?display=storage_extents")
-      @view, @pages = get_view(CimBaseStorageExtent, :parent => @storage, :parent_method => :base_storage_extents)  # Get the records (into a view) and the paginator
-      @showtype = "storage_extents"
-
-    when "ontap_storage_systems"
-      drop_breadcrumb(:name => _("%{name} (All %{tables})") % {:name   => @storage.name,
-                                                               :tables => ui_lookup(:tables => "ontap_storage_system")},
-                      :url  => "/storage/x_show/#{@storage.id}?display=ontap_storage_systems")
-      @view, @pages = get_view(OntapStorageSystem, :parent => @storage, :parent_method => :storage_systems) # Get the records (into a view) and the paginator
-      @showtype = "ontap_storage_systems"
-
-    when "ontap_storage_volumes"
-      drop_breadcrumb(:name => _("%{name} (All %{tables})") % {:name   => @storage.name,
-                                                               :tables => ui_lookup(:tables => "ontap_storage_volume")},
-                      :url  => "/storage/x_show/#{@storage.id}?display=ontap_storage_volumes")
-      @view, @pages = get_view(OntapStorageVolume, :parent => @storage, :parent_method => :storage_volumes) # Get the records (into a view) and the paginator
-      @showtype = "ontap_storage_volumes"
-
-    when "ontap_file_shares"
-      drop_breadcrumb(:name => _("%{name} (All %{tables})") % {:name   => @storage.name,
-                                                               :tables => ui_lookup(:tables => "ontap_file_share")},
-                      :url  => "/storage/x_show/#{@storage.id}?display=ontap_file_shares")
-      @view, @pages = get_view(OntapFileShare, :parent => @storage, :parent_method => :file_shares) # Get the records (into a view) and the paginator
-      @showtype = "ontap_file_shares"
     end
     @lastaction = "show"
   end
@@ -245,7 +216,7 @@ class StorageController < ApplicationController
   def get_storages
     page = params[:page].nil? ? 1 : params[:page].to_i
     @current_page = page
-    @items_per_page = @settings[:perpage][@gtl_type.to_sym]   # Get the per page setting for this gtl type
+    @items_per_page = settings(:perpage, @gtl_type.to_sym) # Get the per page setting for this gtl type
     @storage_pages, @storages = paginate(:storages, :per_page => @items_per_page, :order => @col_names[get_sort_col] + " " + @sortdir)
   end
 
@@ -364,7 +335,7 @@ class StorageController < ApplicationController
     if @record.class.base_model.to_s == "Storage"
       rec_cls = @record.class.base_model.to_s.underscore
     end
-    return unless %w(download_pdf main).include?(@display)
+    return unless @display == 'main'
     @showtype = "main"
     @button_group = "storage_pod_#{rec_cls}" if x_active_accord == :storage_pod
     @button_group = "storage_#{rec_cls}" if x_active_accord == :storage
@@ -520,9 +491,7 @@ class StorageController < ApplicationController
     if record_showing
       get_tagdata(@record)
       presenter.hide(:form_buttons_div)
-      path_dir = "storage"
-      presenter.update(:main_div, r[:partial => "#{path_dir}/main",
-                                    :locals => {:controller => 'storage'}])
+      presenter.update(:main_div, r[:partial => "layouts/textual_groups_generic"])
     elsif valid_storage_record?(@record)
       presenter.hide(:form_buttons_div)
       presenter.update(:main_div, r[:partial => "storage_list",
@@ -641,6 +610,14 @@ class StorageController < ApplicationController
   end
 
   private
+
+  def textual_group_list
+    [
+      %i(properties registered_vms relationships),
+      %i(content smart_management)
+    ]
+  end
+  helper_method :textual_group_list
 
   menu_section :inf
 end

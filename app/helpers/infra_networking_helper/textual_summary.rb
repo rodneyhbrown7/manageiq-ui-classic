@@ -4,15 +4,15 @@ module InfraNetworkingHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(switch_type)
+    TextualGroup.new(_('UNUSED?'), %i(switch_type))
   end
 
   def textual_group_relationships
-    %i(hosts)
+    TextualGroup.new(_("Relationships"), %i(hosts))
   end
 
   def textual_group_smart_management
-    %i(tags)
+    TextualTags.new(_("Smart Management"), %i(tags))
   end
 
   #
@@ -24,7 +24,7 @@ module InfraNetworkingHelper::TextualSummary
     if num > 0 && role_allows?(:feature => "host_show_list")
       h = {:label => title_for_hosts, :icon => "pficon pficon-screen", :value => num}
       h[:explorer] = true
-      h[:link] = url_for(:action => 'hosts', :id => @record, :db => 'switch')
+      h[:link] = url_for_only_path(:action => 'hosts', :id => @record, :db => 'switch')
     end
     h
   end

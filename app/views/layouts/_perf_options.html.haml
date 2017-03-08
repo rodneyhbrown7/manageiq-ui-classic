@@ -1,4 +1,4 @@
-- url = url_for(:action => 'perf_chart_chooser',
+- url = url_for_only_path(:action => 'perf_chart_chooser',
                 :id     => @record.id)
 #perf_options_div{:onclick => "if (typeof miqMenu != 'undefined') miqMenu.hideContextMenu();"}
   - if @charts || @perf_options[:chart_type] != :performance
@@ -15,8 +15,7 @@
         - if request.parameters["controller"] == "storage" && @perf_options[:cat]
           = select("perf", "typ", [[_("Hourly"), "Hourly"], [_("Daily"), "Daily"]], {:selected => @perf_options[:typ]},
                                                       :disabled => "")
-        - elsif %(Host VmOrTemplate ContainerNode Container ContainerGroup MiddlewareServer |
-          MiddlewareDatasource MiddlewareMessaging).include?(@perf_options[:model]) && !@rt_hide |
+        - elsif %w(Host VmOrTemplate ContainerNode Container ContainerGroup MiddlewareServer MiddlewareDatasource MiddlewareMessaging).include?(@perf_options[:model]) && !@rt_hide
           = select_tag("perf_typ",
                         options_for_select([[_("Hourly"), "Hourly"], [_("Daily"), "Daily"], [_("Most Recent Hour"), "realtime"]], @perf_options[:typ]),
                         "data-miq_sparkle_on" => true,
@@ -71,24 +70,24 @@
             = _("back")
       - unless @perf_options[:typ] == "realtime"
         - unless @perf_options[:typ] == "Hourly" && request.parameters["controller"] == "storage"
-          - if @perf_options[:cats]
+          - if @perf_options.cats
             %dt
               = _("Group by")
             %dd
               = select_tag("perf_cat",
-                           options_for_select(Array(@perf_options[:cats].invert).sort_by { |name, _value| name },
+                           options_for_select(Array(@perf_options.cats.invert).sort_by { |name, _value| name },
                                               "#{@perf_options[:cat_model]}:#{@perf_options[:cat]}"),
                            "data-miq_sparkle_on" => true,
                            :class    => "selectpicker")
               :javascript
                 miqSelectPickerEvent("perf_cat", "#{url}")
         - unless @perf_options[:cat]
-          - if @perf_options[:vmtypes] && (@perf_options[:index].nil? || @charts.first[:title].include?("by Type"))
+          - if @perf_options.vmtypes && (@perf_options[:index].nil? || @charts.first[:title].include?("by Type"))
             %dt
               = _("Show VM Types")
             %dd
               = select_tag("perf_vmtype",
-                           options_for_select(@perf_options[:vmtypes],
+                           options_for_select(@perf_options.vmtypes,
                            @perf_options[:vmtype]),
                            "data-miq_sparkle_on" => true,
                            :class    => "selectpicker")
@@ -128,20 +127,6 @@
                            :class    => "selectpicker")
             :javascript
               miqSelectPickerEvent("compare_to", "#{url}")
-
-      - elsif @perf_options[:model] == "OntapLogicalDisk" && @perf_options[:typ] != "realtime"
-        - compare_choices = @perf_record.vms.sort_by(&:name).collect { |v| [v.name, v.id] }
-        - unless compare_choices.empty?
-          %dt
-            = _("Show VM")
-          %dd
-            = select_tag("compare_vm",
-                         options_for_select([["<None>", nil]] + compare_choices,
-                         @perf_options[:compare_vm]),
-                         "data-miq_sparkle_on" => true,
-                         :class    => "selectpicker")
-          :javascript
-            miqSelectPickerEvent("compare_vm", "#{url}")
       - if @perf_options[:typ] == "Daily"
         %dt
         %dd= _("* Daily charts only include days for which all 24 hours of data has been collected.")

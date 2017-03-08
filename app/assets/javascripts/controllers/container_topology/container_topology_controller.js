@@ -3,9 +3,9 @@
 miqHttpInject(angular.module('topologyApp', ['kubernetesUI', 'ui.bootstrap', 'ManageIQ']))
 .controller('containerTopologyController', ContainerTopologyCtrl);
 
-ContainerTopologyCtrl.$inject = ['$scope', '$http', '$interval', '$location', 'topologyService', '$window'];
+ContainerTopologyCtrl.$inject = ['$scope', '$http', '$interval', 'topologyService', '$window', 'miqService'];
 
-function ContainerTopologyCtrl($scope, $http, $interval, $location, topologyService, $window) {
+function ContainerTopologyCtrl($scope, $http, $interval, topologyService, $window, miqService) {
   ManageIQ.angular.scope = $scope;
   miqHideSearchClearButton();
   var self = this;
@@ -16,29 +16,31 @@ function ContainerTopologyCtrl($scope, $http, $interval, $location, topologyServ
   $scope.d3 = d3;
 
   $scope.refresh = function() {
-    var id;
+    var id, type;
     var pathname = $window.location.pathname.replace(/\/$/, '');
-    if (pathname.match(/show$/)) {
+    if (pathname.match('/container_topology/show$')) {
+      // specifically the container_topology page - all container ems's
+      type = 'container_topology';
       id = '';
-    } else {
-      // search for pattern ^/<controler>/<id>$ in the pathname
-      id = '/' + (/^\/[^\/]+\/(\d+)$/.exec(pathname)[1]);
+    } else if (pathname.match('/(.+)/show/([0-9]+)')) {
+      // any container entity except the ems
+      // search for pattern ^/<controller>/show/<id>$ in the pathname - /container_project/show/11
+      var arr = pathname.match('/(.+)/show/([0-9]+)');
+      type = arr[1] + '_topology';
+      id = '/' + arr[2]
+    } else if (pathname.match('/(.+)/([0-9]+)')) {
+      // single entity topology of ems_container
+      // search for pattern ^/<controller>/<id>$ in the pathname - /ems_container/4
+      var arr = pathname.match('/(.+)/([0-9]+)');
+      type = 'container_topology';
+      id = '/' + arr[2]
     }
 
-    var url = '/container_topology/data' + id;
+    var url = '/' + type + '/data' + id;
 
-    var currentSelectedKinds = $scope.kinds;
-
-    $http.get(url).success(function(data) {
-      $scope.items = data.data.items;
-      $scope.relations = data.data.relations;
-      $scope.kinds = data.data.kinds;
-      icons = data.data.icons;
-
-      if (currentSelectedKinds && (Object.keys(currentSelectedKinds).length != Object.keys($scope.kinds).length)) {
-        $scope.kinds = currentSelectedKinds;
-      }
-    });
+    $http.get(url)
+      .then(getContainerTopologyData)
+      .catch(miqService.handleFailure);
   };
 
   $scope.checkboxModel = {
@@ -132,6 +134,16 @@ function ContainerTopologyCtrl($scope, $http, $interval, $location, topologyServ
      * vertices: All the elements
      * added: Just the ones that were added
      */
+
+    /*
+      If we remove some kinds beforehand, and then try to bring them back we
+      get the hash {kind: undefined} instead of {kind: true}.
+    */
+    if ($scope.kinds) {
+      Object.keys($scope.kinds).forEach(function (key) {
+        $scope.kinds[key] = true
+      });
+    }
 
     added.attr("class", function(d) {
       return d.item.kind;
@@ -253,6 +265,8 @@ function ContainerTopologyCtrl($scope, $http, $interval, $location, topologyServ
     switch (d.item.kind) {
       case "ContainerManager":
         return { x: -20, y: -20, r: 28 };
+      case "ContainerProject":
+        return { x: defaultDimensions.x, y: defaultDimensions.y, r: 28 };
       case "Container":
         return { x: 1, y: 5, r: 13 };
       case "ContainerGroup":
@@ -283,4 +297,31 @@ function ContainerTopologyCtrl($scope, $http, $interval, $location, topologyServ
     // Reset the search term in search input
     $('input#search_topology')[0].value = "";
   };
+
+  function getContainerTopologyData(response) {
+    var data = response.data;
+
+    var currentSelectedKinds = $scope.kinds;
+
+    $scope.items = data.data.items;
+    $scope.relations = data.data.relations;
+    $scope.kinds = data.data.kinds;
+    icons = data.data.icons;
+    var size_limit = data.data.settings.containers_max_objects;
+
+    if (currentSelectedKinds && (Object.keys(currentSelectedKinds).length !== Object.keys($scope.kinds).length)) {
+      $scope.kinds = currentSelectedKinds;
+    } else if (size_limit > 0) {
+      var remove_hierarchy = ['Container',
+        'ContainerGroup',
+        'ContainerReplicator',
+        'ContainerService',
+        'ContainerRoute',
+        'Host',
+        'Vm',
+        'ContainerNode',
+        'ContainerManager'];
+      $scope.kinds = topologyService.reduce_kinds($scope.items, $scope.kinds, size_limit, remove_hierarchy);
+    }
+  }
 }

@@ -70,21 +70,25 @@ module ContainerSummaryHelper
   end
 
   def textual_group_container_labels
-    textual_key_value_group(@record.labels.to_a)
+    TextualGroup.new(_("Labels"), textual_key_value_group(@record.labels.to_a))
+  end
+
+  def textual_group_miq_custom_attributes
+    TextualGroup.new(_("Custom Attributes"), textual_miq_custom_attributes)
   end
 
   def textual_miq_custom_attributes
     attrs = @record.custom_attributes
     return nil if attrs.blank?
-    attrs.collect { |a| {:label => a.name.tr("_", " "), :value => a.value} }
+    attrs.sort_by(&:name).collect { |a| {:label => a.name.tr("_", " "), :value => a.value} }
   end
 
   def textual_group_container_selectors
-    textual_key_value_group(@record.selector_parts.to_a)
+    TextualGroup.new(_("Node Selector"), textual_key_value_group(@record.selector_parts.to_a))
   end
 
-  def textual_container_node_selectors
-    textual_key_value_group(@record.node_selector_parts.to_a)
+  def textual_group_container_node_selectors
+    TextualGroup.new(_("Node Selector"), textual_key_value_group(@record.node_selector_parts.to_a))
   end
 
   def textual_container_image
@@ -106,7 +110,7 @@ module ContainerSummaryHelper
   def textual_guest_applications
     textual_link(@record.guest_applications, :feature => "container_image_show",
                                              :label   => _("Packages"),
-                                             :link    => url_for(:controller => controller.controller_name,
+                                             :link    => url_for_only_path(:controller => controller.controller_name,
                                                                  :action     => 'guest_applications',
                                                                  :id         => @record,
                                                                  :db         => controller.controller_name))
@@ -117,7 +121,7 @@ module ContainerSummaryHelper
       @record.openscap_rule_results,
       :feature => "container_image_show",
       :label   => _("OpenSCAP Results"),
-      :link    => url_for(
+      :link    => url_for_only_path(
         :controller => controller.controller_name,
         :action     => 'openscap_rule_results',
         :id         => @record,
@@ -134,7 +138,7 @@ module ContainerSummaryHelper
     h = {:label => _("OpenSCAP HTML")}
     if @record.openscap_result
       h[:value] = _('Available')
-      h[:link] = url_for(
+      h[:link] = url_for_only_path(
         :id         => @record,
         :controller => controller.controller_name,
         :action     => 'openscap_html'
@@ -172,26 +176,6 @@ module ContainerSummaryHelper
 
   def textual_parent
     textual_link(@record.parent)
-  end
-
-  def textual_tags
-    label = _("%{name} Tags") % {:name => session[:customer_name]}
-    h = {:label => label}
-    tags = session[:assigned_filters]
-    if tags.present?
-      h[:value] = tags.sort_by { |category, _assigned| category.downcase }.collect do |category, assigned|
-        {
-          :image => "100/smarttag.png",
-          :label => category,
-          :value => assigned
-        }
-      end
-    else
-      h[:image] = "100/smarttag.png"
-      h[:value] = _("No %{label} have been assigned") % {:label => label}
-    end
-
-    h
   end
 
   def collect_env

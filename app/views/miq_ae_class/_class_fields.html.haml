@@ -20,11 +20,11 @@
                 %td.text-nowrap
                   / Name is special processed
                   - if fname == 'name'
-                    %i.product.fa-lg{:class => "product-ae_#{ae_field.aetype}",
+                    %i.product.fa-lg{:class  => ae_field_fonticon(ae_field.aetype),
                                       :alt   => (t = "#{_('Type:')} #{ae_field.aetype}"),
                                       :title => t}
                     - if !ae_field.datatype.blank? && ae_field.datatype != "string"
-                      %i.product.fa-lg{:class => "product-#{ae_field.datatype}",
+                      %i.product.fa-lg{:class  => ae_field_fonticon(ae_field.datatype),
                                         :alt   => (t = "#{_('Data Type:')} #{ae_field.datatype}"), :title => t}
 
                     %i.fa-lg{:class => "#{image}",
@@ -43,7 +43,7 @@
                  :locals  => {:message => _("No schema found")}
 
     - else
-      - url = url_for(:action => 'fields_form_field_changed', :id => "#{@ae_class.id || 'new'}")
+      - url = url_for_only_path(:action => 'fields_form_field_changed', :id => (@ae_class.id || 'new'))
       - obs = {:interval => '.5', :url => url}.to_json
       / Edit Schema
       #form_div
@@ -52,7 +52,7 @@
         %table.table.table-striped.table-bordered
           %thead
             %tr
-              %th.narrow
+              %th.table-view-pf-select
               - [_('Name'), _('Type'), _('Data Type'), _('Default Value'), _('Display Name'), _('Description'), _('Sub'), _('Collect'),
                 _('Message'), _('On Entry'), _('On Exit'), _('On Error'), _('Max Retries'), _('Max Time')].each do |title|
                 %th

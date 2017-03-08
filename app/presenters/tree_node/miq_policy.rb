@@ -1,6 +1,5 @@
 module TreeNode
   class MiqPolicy < Node
-    set_attribute(:image) { "100/miq_policy_#{@object.towhat.downcase}#{@object.active ? '' : '_inactive'}.png" }
     set_attribute(:title) do
       if @options[:tree] == :policy_profile_tree
         ViewHelper.capture do

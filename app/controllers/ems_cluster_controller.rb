@@ -5,6 +5,7 @@ class EmsClusterController < ApplicationController
   after_action :set_session_data
 
   include Mixins::GenericListMixin
+  include Mixins::MoreShowActions
 
   def drift_history
     @display = "drift_history"
@@ -23,12 +24,12 @@ class EmsClusterController < ApplicationController
     @gtl_url = "/show"
 
     case @display
-    when "download_pdf", "main", "summary_only"
+    when "main", "summary_only"
       get_tagdata(@ems_cluster)
       drop_breadcrumb({:name => _("Clusters"), :url => "/ems_cluster/show_list?page=#{@current_page}&refresh=y"}, true)
       drop_breadcrumb(:name => @ems_cluster.name + _(" (Summary)"), :url => "/ems_cluster/show/#{@ems_cluster.id}")
       @showtype = "main"
-      set_summary_pdf_data if ["download_pdf", "summary_only"].include?(@display)
+      set_summary_pdf_data if @display == "summary_only"
 
     when "descendant_vms"
       drop_breadcrumb(:name => @ems_cluster.name + _(" (All VMs - Tree View)"),
@@ -70,19 +71,11 @@ class EmsClusterController < ApplicationController
       drop_breadcrumb(:name => _("Configuration"), :url => "/ems_cluster/show/#{@ems_cluster.id}?display=#{@display}")
 
     when "performance"
-      @showtype = "performance"
-      drop_breadcrumb(:name => _("%{name} Capacity & Utilization") % {:name => @ems_cluster.name},
-                      :url  => "/ems_cluster/show/#{@ems_cluster.id}?display=#{@display}&refresh=n")
-      perf_gen_init_options               # Intialize perf chart options, charts will be generated async
+      show_performance
 
     when "timeline"
-      @showtype = "timeline"
-      session[:tl_record_id] = params[:id] if params[:id]
       @record = find_by_id_filtered(EmsCluster, session[:tl_record_id])
-      @timeline = @timeline_filter = true
-      @lastaction = "show_timeline"
-      tl_build_timeline                       # Create the timeline report
-      drop_breadcrumb(:name => _("Timelines"), :url => "/ems_cluster/show/#{@record.id}?refresh=n&display=timeline")
+      show_timeline
 
     when "storage"
       drop_breadcrumb(:name => @ems_cluster.name + _(" (All Descendant %{table}(s))") %
@@ -90,34 +83,6 @@ class EmsClusterController < ApplicationController
                       :url  => "/ems_cluster/show/#{@ems_cluster.id}?display=storage")
       @view, @pages = get_view(Storage, :parent => @ems_cluster)  # Get the records (into a view) and the paginator
       @showtype = "storage"
-
-    when "storage_extents"
-      drop_breadcrumb(:name => @ems_cluster.name + _(" (All %{tables})") %
-        {:tables => ui_lookup(:tables => "cim_base_storage_extent")},
-                      :url  => "/ems_cluster/show/#{@ems_cluster.id}?display=storage_extents")
-      @view, @pages = get_view(CimBaseStorageExtent, :parent => @ems_cluster, :parent_method => :base_storage_extents)  # Get the records (into a view) and the paginator
-      @showtype = "storage_extents"
-
-    when "storage_systems"
-      drop_breadcrumb(:name => @ems_cluster.name + _(" (All %{tables})") %
-        {:tables => ui_lookup(:tables => "ontap_storage_system")},
-                      :url  => "/ems_cluster/show/#{@ems_cluster.id}?display=storage_systems")
-      @view, @pages = get_view(OntapStorageSystem, :parent => @ems_cluster, :parent_method => :storage_systems) # Get the records (into a view) and the paginator
-      @showtype = "storage_systems"
-
-    when "ontap_storage_volumes"
-      drop_breadcrumb(:name => @ems_cluster.name + _(" (All %{tables})") %
-        {:tables => ui_lookup(:tables => "ontap_storage_volume")},
-                      :url  => "/ems_cluster/show/#{@ems_cluster.id}?display=ontap_storage_volumes")
-      @view, @pages = get_view(OntapStorageVolume, :parent => @ems_cluster, :parent_method => :storage_volumes) # Get the records (into a view) and the paginator
-      @showtype = "ontap_storage_volumes"
-
-    when "ontap_file_shares"
-      drop_breadcrumb(:name => @ems_cluster.name + _(" (All %{tables})") %
-        {:tables => ui_lookup(:tables => "ontap_file_share")},
-                      :url  => "/ems_cluster/show/#{@ems_cluster.id}?display=ontap_file_shares")
-      @view, @pages = get_view(OntapFileShare, :parent => @ems_cluster, :parent_method => :file_shares) # Get the records (into a view) and the paginator
-      @showtype = "ontap_file_shares"
     end
 
     set_config(@ems_cluster)
@@ -206,7 +171,15 @@ class EmsClusterController < ApplicationController
     end
   end
 
-  private ############################
+  private
+
+  def textual_group_list
+    [
+      %i(relationships),
+      %i(host_totals vm_totals configuration tags openstack_status)
+    ]
+  end
+  helper_method :textual_group_list
 
   def hosts_subsets
     condition         = nil

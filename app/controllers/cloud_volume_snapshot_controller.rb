@@ -5,10 +5,16 @@ class CloudVolumeSnapshotController < ApplicationController
   after_action :set_session_data
 
   include Mixins::GenericListMixin
+  include Mixins::GenericShowMixin
   include Mixins::GenericSessionMixin
   include Mixins::GenericButtonMixin
 
   private
+
+  def textual_group_list
+    [%i(properties relationships), %i(tags)]
+  end
+  helper_method :textual_group_list
 
   # handle buttons pressed on the button bar
   def specific_buttons(pressed)

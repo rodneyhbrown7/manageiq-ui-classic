@@ -7,11 +7,11 @@ module LoadBalancerHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(name type description listeners health_checks)
+    TextualGroup.new(_("Properties"), %i(name type description listeners health_checks))
   end
 
   def textual_group_relationships
-    %i(parent_ems_cloud ems_network cloud_tenant instances)
+    TextualGroup.new(_("Relationships"), %i(parent_ems_cloud ems_network cloud_tenant instances))
   end
 
   #
@@ -54,7 +54,7 @@ module LoadBalancerHelper::TextualSummary
     num   = @record.number_of(:vms)
     h     = {:label => label, :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'instances')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'instances')
       h[:title] = _("Show all %{label}") % {:label => label}
     end
     h

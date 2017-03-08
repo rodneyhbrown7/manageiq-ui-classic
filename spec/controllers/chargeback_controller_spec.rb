@@ -197,6 +197,7 @@ describe ChargebackController do
       EvmSpecHelper.local_miq_server
       allow_any_instance_of(described_class).to receive(:center_toolbar_filename).and_return("chargeback_center_tb")
       seed_session_trees('chargeback', :cb_rates_tree, "xx-Compute")
+      [ChargebackRateDetailMeasure, ChargeableField].each(&:seed)
     end
 
     def expect_input(body, selector, value)
@@ -352,9 +353,9 @@ describe ChargebackController do
         expect(rate_detail.detail_currency.name).to eq(rate_detail_hash[:type_currency])
 
         if rate_detail_hash[:measure].nil?
-          expect(rate_detail.detail_measure).to be_nil
+          expect(rate_detail.chargeable_field.detail_measure).to be_nil
         else
-          expect(rate_detail.detail_measure.name).to eq(rate_detail_hash[:measure])
+          expect(rate_detail.chargeable_field.detail_measure.name).to eq(rate_detail_hash[:measure])
         end
 
         rate_detail.chargeback_tiers.each_with_index do |tier, tier_index|
@@ -365,91 +366,91 @@ describe ChargebackController do
       end
     end
 
-    let(:chargeback_rate_from_yaml) { File.join(ChargebackRate::FIXTURE_DIR, "chargeback_rates.yml") }
-    let(:compute_chargeback_rate_hash_from_yaml) do
-      rates_hash = YAML.load_file(chargeback_rate_from_yaml)
-      rates_hash.find { |rate| rate[:rate_type] == "Compute" }
-    end
+    context 'with default chargebacks rates' do
+      let(:chargeback_rate_from_yaml) { File.join(ChargebackRate::FIXTURE_DIR, "chargeback_rates.yml") }
+      let(:compute_chargeback_rate_hash_from_yaml) do
+        rates_hash = YAML.load_file(chargeback_rate_from_yaml)
+        rates_hash.find { |rate| rate[:rate_type] == "Compute" }
+      end
 
-    it "adds new chargeback rate using default values" do
-      allow(controller).to receive(:load_edit).and_return(true)
+      before do
+        [ChargebackRateDetailCurrency, ChargebackRate].each(&:seed)
+      end
 
-      ChargebackRate.seed
+      it "adds new chargeback rate using default values" do
+        allow(controller).to receive(:load_edit).and_return(true)
 
-      count_of_chargeback_rates = ChargebackRate.count
+        count_of_chargeback_rates = ChargebackRate.count
 
-      post :x_button, :params => {:pressed => "chargeback_rates_new"}
-      post :cb_rate_form_field_changed, :params => {:id => "new", :description => "chargeback rate 1"}
-      post :cb_rate_edit, :params => {:button => "add"}
+        post :x_button, :params => {:pressed => "chargeback_rates_new"}
+        post :cb_rate_form_field_changed, :params => {:id => "new", :description => "chargeback rate 1"}
+        post :cb_rate_edit, :params => {:button => "add"}
 
-      expect(ChargebackRate.count).to eq(count_of_chargeback_rates + 1)
+        expect(ChargebackRate.count).to eq(count_of_chargeback_rates + 1)
 
-      new_chargeback_rate = ChargebackRate.last
+        new_chargeback_rate = ChargebackRate.last
 
-      expect(File.exist?(chargeback_rate_from_yaml)).to be_truthy
-      expect(new_chargeback_rate.description).to eq("chargeback rate 1")
-      expect_chargeback_rate_to_eq_hash(new_chargeback_rate, compute_chargeback_rate_hash_from_yaml)
-    end
+        expect(File.exist?(chargeback_rate_from_yaml)).to be_truthy
+        expect(new_chargeback_rate.description).to eq("chargeback rate 1")
+        expect_chargeback_rate_to_eq_hash(new_chargeback_rate, compute_chargeback_rate_hash_from_yaml)
+      end
 
-    it "adds new chargeback rate and user adds and removes some tiers" do
-      allow(controller).to receive(:load_edit).and_return(true)
+      it "adds new chargeback rate and user adds and removes some tiers" do
+        allow(controller).to receive(:load_edit).and_return(true)
 
-      ChargebackRate.seed
+        post :x_button, :params => {:pressed => "chargeback_rates_new"}
+        post :cb_rate_form_field_changed, :params => {:id => "new", :description => "chargeback rate 1"}
 
-      post :x_button, :params => {:pressed => "chargeback_rates_new"}
-      post :cb_rate_form_field_changed, :params => {:id => "new", :description => "chargeback rate 1"}
+        post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
+        post :cb_tier_remove, :params => {:button => "remove", :index => "#{index_to_rate_type}-1"}
+        post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
+        post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
 
-      post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
-      post :cb_tier_remove, :params => {:button => "remove", :index => "#{index_to_rate_type}-1"}
-      post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
-      post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
+        # add values to newly added tiers to be valid
+        change_form_value(:finish_0_0, "20.0", "new")
+        change_form_value(:start_0_1, "20.0", "new")
+        change_form_value(:finish_0_1, "50.0", "new")
+        change_form_value(:start_0_2, "50.0", "new")
 
-      # add values to newly added tiers to be valid
-      change_form_value(:finish_0_0, "20.0", "new")
-      change_form_value(:start_0_1, "20.0", "new")
-      change_form_value(:finish_0_1, "50.0", "new")
-      change_form_value(:start_0_2, "50.0", "new")
+        post :cb_rate_edit, :params => {:button => "add"}
 
-      post :cb_rate_edit, :params => {:button => "add"}
+        # change expected values from yaml
+        compute_chargeback_rate_hash_from_yaml[:rates].sort_by! { |rd| [rd[:group], rd[:description]] }
+        compute_rates = compute_chargeback_rate_hash_from_yaml[:rates][index_to_rate_type.to_i]
+        compute_rates[:tiers][0][:finish] = 20.0
+        compute_rates[:tiers].push(:start => 20.0, :finish => 50.0)
+        compute_rates[:tiers].push(:start => 50.0, :finish => Float::INFINITY)
 
-      # change expected values from yaml
-      compute_chargeback_rate_hash_from_yaml[:rates].sort_by! { |rd| [rd[:group], rd[:description]] }
-      compute_rates = compute_chargeback_rate_hash_from_yaml[:rates][index_to_rate_type.to_i]
-      compute_rates[:tiers][0][:finish] = 20.0
-      compute_rates[:tiers].push(:start => 20.0, :finish => 50.0)
-      compute_rates[:tiers].push(:start => 50.0, :finish => Float::INFINITY)
+        new_chargeback_rate = ChargebackRate.last
 
-      new_chargeback_rate = ChargebackRate.last
+        expect_chargeback_rate_to_eq_hash(new_chargeback_rate, compute_chargeback_rate_hash_from_yaml)
+      end
 
-      expect_chargeback_rate_to_eq_hash(new_chargeback_rate, compute_chargeback_rate_hash_from_yaml)
-    end
+      it "doesn't add new chargeback rate because some of tier has start value bigger than finish value" do
+        allow(controller).to receive(:load_edit).and_return(true)
 
-    it "doesn't add new chargeback rate because some of tier has start value bigger than finish value" do
-      allow(controller).to receive(:load_edit).and_return(true)
+        post :x_button, :params => {:pressed => "chargeback_rates_new"}
+        post :cb_rate_form_field_changed, :params => {:id => "new", :description => "chargeback rate 1"}
 
-      ChargebackRate.seed
+        post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
+        post :cb_tier_remove, :params => {:button => "remove", :index => "#{index_to_rate_type}-1"}
+        post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
+        post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
 
-      post :x_button, :params => {:pressed => "chargeback_rates_new"}
-      post :cb_rate_form_field_changed, :params => {:id => "new", :description => "chargeback rate 1"}
+        # add values to newly added tiers to be valid
+        change_form_value(:finish_0_0, "500.0", "new")
+        change_form_value(:start_0_1, "500.0", "new")
+        change_form_value(:finish_0_1, "50.0", "new")
+        change_form_value(:start_0_2, "50.0", "new")
 
-      post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
-      post :cb_tier_remove, :params => {:button => "remove", :index => "#{index_to_rate_type}-1"}
-      post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
-      post :cb_tier_add, :params => {:button => "add", :detail_index => index_to_rate_type}
+        post :cb_rate_edit, :params => {:button => "add"}
 
-      # add values to newly added tiers to be valid
-      change_form_value(:finish_0_0, "500.0", "new")
-      change_form_value(:start_0_1, "500.0", "new")
-      change_form_value(:finish_0_1, "50.0", "new")
-      change_form_value(:start_0_2, "50.0", "new")
+        flash_messages = assigns(:flash_array)
 
-      post :cb_rate_edit, :params => {:button => "add"}
-
-      flash_messages = assigns(:flash_array)
-
-      expect(flash_messages.count).to eq(1)
-      expected_message = "'Allocated CPU Count' finish value must be greater than start value."
-      expect(flash_messages[0][:message]).to eq(expected_message)
+        expect(flash_messages.count).to eq(1)
+        expected_message = "'Allocated CPU Count' finish value must be greater than start value."
+        expect(flash_messages[0][:message]).to eq(expected_message)
+      end
     end
 
     def convert_chargeback_rate_to_hash(rate)
@@ -458,6 +459,7 @@ describe ChargebackController do
       rate.chargeback_rate_details.each do |rate_detail|
         rate_detail_hash = rate_detail.slice(*ChargebackRateDetail::FORM_ATTRIBUTES)
         rate_detail_hash = Hash[rate_detail_hash.map { |(k, v)| [k.to_sym, v] }]
+        rate_detail_hash[:group] = rate_detail.chargeable_field.group
         rate_detail_hash[:tiers] = []
         rate_detail.chargeback_tiers.each do |tier|
           tier_hash = tier.slice(*ChargebackTier::FORM_ATTRIBUTES)
@@ -465,7 +467,7 @@ describe ChargebackController do
           rate_detail_hash[:tiers].push(tier_hash)
         end
 
-        rate_detail_hash[:measure] = rate_detail.detail_measure.name
+        rate_detail_hash[:measure] = rate_detail.chargeable_field.detail_measure.name
         rate_detail_hash[:type_currency] = rate_detail.detail_currency.name
         origin_chargeback_rate_hash[:rates].push(rate_detail_hash)
       end
@@ -526,7 +528,7 @@ describe ChargebackController do
       flash_messages = assigns(:flash_array)
 
       expect(flash_messages.count).to eq(1)
-      expected_message = "'Allocated Memory in MB' chargeback tiers must start at zero and "
+      expected_message = "'Allocated Memory' chargeback tiers must start at zero and "
       expected_message += "not contain any gaps between start and prior end value."
       expect(flash_messages[0][:message]).to eq(expected_message)
     end
@@ -541,7 +543,7 @@ describe ChargebackController do
       flash_messages = assigns(:flash_array)
 
       expect(flash_messages.count).to eq(1)
-      expect(flash_messages[0][:message]).to eq("'Allocated Memory in MB' start is not a number")
+      expect(flash_messages[0][:message]).to eq("'Allocated Memory' start is not a number")
     end
 
     it "doesn't store rate and displays validation message with invalid input of tiers(ambiguous tiers)" do
@@ -557,7 +559,7 @@ describe ChargebackController do
       flash_messages = assigns(:flash_array)
 
       expect(flash_messages.count).to eq(1)
-      expected_message = "'Allocated Memory in MB' finish value must be greater than start value."
+      expected_message = "'Allocated Memory' finish value must be greater than start value."
       expect(flash_messages[0][:message]).to eq(expected_message)
     end
   end

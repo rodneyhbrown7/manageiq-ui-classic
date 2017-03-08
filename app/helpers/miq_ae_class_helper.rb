@@ -62,11 +62,60 @@ module MiqAeClassHelper
     end
   end
 
-  def icon_class(cls)
-    cls.to_s.split("::").last.underscore.sub('miq_', 'product product-')
-  end
-
   def nonblank(*items)
     items.detect { |item| !item.blank? }
+  end
+
+  def ae_field_fonticon(field)
+    case field
+    when 'string'
+      'product product-string'
+    when 'symbol'
+      'product product-symbol'
+    when 'integer'
+      'product product-integer'
+    when 'float'
+      'product product-float'
+    when 'boolean'
+      'product product-boolean'
+    when 'time'
+      'fa fa-clock-o'
+    when 'array'
+      'product product-array'
+    when 'password'
+      'product product-password'
+    when 'null coalescing'
+      'fa fa-question'
+    when 'host'
+      'pficon pficon-screen'
+    when 'vm'
+      'pficon pficon-virtual-machine'
+    when 'storage'
+      'fa fa-database'
+    when 'ems'
+      'pficon pficon-server'
+    when 'policy'
+      'fa fa-shield'
+    when 'server'
+      'pficon pficon-server'
+    when 'request'
+      'fa fa-question'
+    when 'provision'
+      'pficon pficon-settings'
+    when 'user'
+      'pficon pficon-user'
+    when 'assertion'
+      'product product-assertion'
+    when 'attribute'
+      'product product-attribute'
+    when 'method'
+      'product product-method'
+    when 'relationship'
+      'product product-relationship'
+    when 'state'
+      'product product-state'
+    else
+      raise NotImplementedError, "Missing fonticon for MiqAeField type #{field}"
+    end
   end
 end

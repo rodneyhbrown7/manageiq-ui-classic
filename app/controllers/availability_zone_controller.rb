@@ -6,6 +6,7 @@ class AvailabilityZoneController < ApplicationController
 
   include Mixins::GenericListMixin
   include Mixins::GenericSessionMixin
+  include Mixins::MoreShowActions
 
   def show
     return if perfmenu_click?
@@ -20,18 +21,15 @@ class AvailabilityZoneController < ApplicationController
     drop_breadcrumb({:name => _("Availabilty Zones"),
                      :url  => "/availability_zones/show_list?page=#{@current_page}&refresh=y"}, true)
     case @display
-    when "download_pdf", "main", "summary_only"
+    when "main", "summary_only"
       get_tagdata(@availability_zone)
       drop_breadcrumb(:name => _("%{name} (Summary)") % {:name => @availability_zone.name},
                       :url  => "/availability_zone/show/#{@availability_zone.id}")
       @showtype = "main"
-      set_summary_pdf_data if ["download_pdf", "summary_only"].include?(@display)
+      set_summary_pdf_data if @display == "summary_only"
 
     when "performance"
-      @showtype = "performance"
-      drop_breadcrumb(:name => _("%{name} Capacity & Utilization") % {:name => @availability_zone.name},
-                      :url  => "/availability_zone/show/#{@availability_zone.id}?display=#{@display}&refresh=n")
-      perf_gen_init_options               # Intialize perf chart options, charts will be generated async
+      show_performance
 
     when "ems_cloud"
       drop_breadcrumb(:name => _("%{name} (%{table}(s))") % {:name  => @availability_zone.name,
@@ -58,14 +56,9 @@ class AvailabilityZoneController < ApplicationController
       @showtype = @display
 
     when "timeline"
-      @showtype = "timeline"
-      session[:tl_record_id] = params[:id] if params[:id]
       @record = find_by_id_filtered(AvailabilityZone, session[:tl_record_id])
-      @timeline = @timeline_filter = true
-      @lastaction = "show_timeline"
-      tl_build_timeline                       # Create the timeline report
-      drop_breadcrumb(:name => _("Timelines"),
-                      :url  => "/availability_zone/show/#{@record.id}?refresh=n&display=timeline")
+      show_timeline
+
     end
 
     replace_gtl_main_div if pagination_request?
@@ -134,6 +127,13 @@ class AvailabilityZoneController < ApplicationController
       end
     end
   end
+
+  private
+
+  def textual_group_list
+    [%i(relationships), %i(availability_zone_totals tags)]
+  end
+  helper_method :textual_group_list
 
   menu_section :clo
 end

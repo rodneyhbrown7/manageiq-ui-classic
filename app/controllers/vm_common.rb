@@ -1,6 +1,19 @@
 module VmCommon
   extend ActiveSupport::Concern
   include ActionView::Helpers::JavaScriptHelper
+  include ChargebackPreview
+
+  def textual_group_list
+    [
+      %i(properties lifecycle relationships vmsafe normal_operating_ranges miq_custom_attributes ems_custom_attributes),
+      %i(compliance power_management security configuration datastore_allocation datastore_usage diagnostics tags)
+    ]
+  end
+
+  included do
+    private :textual_group_list
+    helper_method :textual_group_list
+  end
 
   # handle buttons pressed on the button bar
   def button
@@ -94,59 +107,6 @@ module VmCommon
   alias_method :vm_timeline, :show_timeline
   alias_method :miq_template_timeline, :show_timeline
 
-  # Launch a VM console
-  def console
-    console_type = ::Settings.server.remote_console_type.downcase
-    params[:task_id] ? console_after_task(console_type) : console_before_task(console_type)
-  end
-  alias_method :vmrc_console, :console  # VMRC needs its own URL for RBAC checking
-
-  def launch_cockpit
-    vm = identify_record(params[:id], VmOrTemplate)
-
-    if vm.supports_launch_cockpit?
-      javascript_open_window(vm.cockpit_url)
-    else
-      javascript_flash(:text => vm.unsupported_reason(:launch_cockpit), :severity => :error, :spinner_off => true)
-    end
-  end
-
-  def html5_console
-    params[:task_id] ? console_after_task('html5') : console_before_task('html5')
-  end
-
-  def launch_vmware_console
-    console_type = ::Settings.server.remote_console_type.downcase
-    @vm = @record = identify_record(params[:id], VmOrTemplate)
-    options = case console_type
-              when "mks"
-                @sb[:mks].update(
-                  :version     => ::Settings.server.mks_version,
-                  :mks_classid => ::Settings.server.mks_classid
-                )
-              when "vmrc"
-                host = @record.ext_management_system.ipaddress || @record.ext_management_system.hostname
-                vmid = @record.ems_ref
-                {
-                  :host        => host,
-                  :vmid        => @record.ems_ref,
-                  :ticket      => j(params[:ticket]),
-                  :api_version => @record.ext_management_system.api_version.to_s,
-                  :os          => browser_info(:os),
-                  :name        => @record.name,
-                  :vmrc_uri    => URI::Generic.build(:scheme   => "vmrc",
-                                                     :userinfo => "clone:#{params[:ticket]}",
-                                                     :host     => host,
-                                                     :port     => 443,
-                                                     :path     => "/",
-                                                     :query    => "moid=#{vmid}")
-                }
-              end
-    render :template => "vm_common/console_#{console_type}",
-           :layout   => false,
-           :locals   => options
-  end
-
   def hide_vms
     !User.current_user.settings.fetch_path(:display, :display_vms) # default value is false
   end
@@ -155,29 +115,16 @@ module VmCommon
     @vm.present?
   end
 
-  def launch_html5_console
-    proto = request.ssl? ? 'wss' : 'ws'
-    override_content_security_policy_directives(
-      :connect_src => ["'self'", "#{proto}://#{request.env['HTTP_HOST']}"],
-      :img_src     => %w(data: 'self')
-    )
-    %i(secret url).each { |p| params.require(p) }
-    @secret = j(params[:secret])
-    @url = j(params[:url])
-
-    case j(params[:proto])
-    when 'spice'     # spice, vnc - from rhevm
-      render(:template => 'vm_common/console_spice', :layout => false)
-    when nil, 'vnc'  # nil - from vmware
-      render(:template => 'vm_common/console_vnc', :layout => false)
-    when 'novnc_url' # from OpenStack
-      redirect_to host_address
-    end
-  end
-
   def x_show
     @vm = @record = identify_record(params[:id], VmOrTemplate)
     generic_x_show
+  end
+
+  def download_summary_pdf
+    super do
+      @flash_array = []
+      @record = identify_record(params[:id], VmOrTemplate)
+    end
   end
 
   def show(id = nil)
@@ -200,7 +147,7 @@ module VmCommon
 
     @explorer = true if request.xml_http_request? # Ajax request means in explorer
 
-    if !@explorer && @display != "download_pdf"
+    unless @explorer
       tree_node_id = TreeBuilder.build_node_id(@record)
       session[:exp_parms] = {:display => @display, :refresh => params[:refresh], :id => tree_node_id}
       controller_name = controller_for_vm(model_for_vm(@record))
@@ -239,14 +186,14 @@ module VmCommon
       rec_cls = "vm"
     end
     @gtl_url = "/show"
-    if ["download_pdf", "main", "summary_only"].include?(@display)
+    if %w(main summary_only).include?(@display)
       get_tagdata(@record)
       drop_breadcrumb({:name => _("Virtual Machines"),
                        :url  => "/#{rec_cls}/show_list?page=#{@current_page}&refresh=y"}, true)
       drop_breadcrumb(:name => @record.name + _(" (Summary)"), :url => "/#{rec_cls}/show/#{@record.id}")
       @showtype = "main"
       @button_group = rec_cls
-      set_summary_pdf_data if ["download_pdf", "summary_only"].include?(@display)
+      set_summary_pdf_data if @display == "summary_only"
     elsif @display == "networks"
       drop_breadcrumb(:name => @record.name + _(" (Networks)"),
                       :url  => "/#{rec_cls}/show/#{@record.id}?display=#{@display}")
@@ -262,10 +209,12 @@ module VmCommon
     elsif @display == "snapshot_info"
       drop_breadcrumb(:name => @record.name + _(" (Snapshots)"),
                       :url  => "/#{rec_cls}/show/#{@record.id}?display=#{@display}")
+      session[:snap_selected] = nil if Snapshot.find_by(:id => session[:snap_selected]).nil?
       @sb[@sb[:active_accord]] = TreeBuilder.build_node_id(@record)
       @snapshot_tree = TreeBuilderSnapshots.new(:snapshot_tree, :snapshot, @sb, true, :root => @record)
       @active = if @snapshot_tree.selected_node
                   snap_selected = Snapshot.find_by_id(from_cid(@snapshot_tree.selected_node.split('-').last))
+                  session[:snap_selected] = snap_selected.id
                   snap_selected.current?
                 else
                   false
@@ -312,30 +261,6 @@ module VmCommon
       disks
       drop_breadcrumb(:name => _("%{name} (Disks)") % {:name => @record.name},
                       :url  => "/#{rec_cls}/show/#{@record.id}?display=#{@display}")
-    elsif @display == "ontap_logical_disks"
-      drop_breadcrumb(:name => @record.name + _(" (All %{tables})") %
-        {:tables => ui_lookup(:tables => "ontap_logical_disk")},
-                      :url  => "/#{rec_cls}/show/#{@record.id}?display=ontap_logical_disks")
-      @view, @pages = get_view(OntapLogicalDisk, :parent => @record, :parent_method => :logical_disks)  # Get the records (into a view) and the paginator
-      @showtype = "ontap_logical_disks"
-    elsif @display == "ontap_storage_systems"
-      drop_breadcrumb(:name => @record.name + _(" (All %{storages})") %
-        {:storages => ui_lookup(:tables => "ontap_storage_system")},
-                      :url  => "/#{rec_cls}/show/#{@record.id}?display=ontap_storage_systems")
-      @view, @pages = get_view(OntapStorageSystem, :parent => @record, :parent_method => :storage_systems)  # Get the records (into a view) and the paginator
-      @showtype = "ontap_storage_systems"
-    elsif @display == "ontap_storage_volumes"
-      drop_breadcrumb(:name => @record.name + _(" (All %{storage_volumes})") %
-        {:storage_volumes => ui_lookup(:tables => "ontap_storage_volume")},
-                      :url  => "/#{rec_cls}/show/#{@record.id}?display=ontap_storage_volumes")
-      @view, @pages = get_view(OntapStorageVolume, :parent => @record, :parent_method => :storage_volumes)  # Get the records (into a view) and the paginator
-      @showtype = "ontap_storage_volumes"
-    elsif @display == "ontap_file_shares"
-      drop_breadcrumb(:name => @record.name + _(" (All %{file_shares})") %
-        {:file_shares => ui_lookup(:tables => "ontap_file_share")},
-                      :url  => "/#{rec_cls}/show/#{@record.id}?display=ontap_file_shares")
-      @view, @pages = get_view(OntapFileShare, :parent => @record, :parent_method => :file_shares)  # Get the records (into a view) and the paginator
-      @showtype = "ontap_file_shares"
     end
 
     set_config(@record)
@@ -346,7 +271,7 @@ module VmCommon
 
     if @explorer
       @refresh_partial = "layouts/performance"
-      replace_right_cell unless ["download_pdf", "performance"].include?(params[:display])
+      replace_right_cell unless params[:display] == "performance"
     end
   end
 
@@ -1005,10 +930,15 @@ module VmCommon
       TreeBuilder.build_node_cid(vm.ems_id, 'ExtManagementSystem')
     elsif vm.cloud
       TreeBuilder.build_node_cid(vm.availability_zone_id, 'AvailabilityZone')
-    elsif (blue_folder = vm.parent_blue_folder)
+    elsif (blue_folder = vm.parent_blue_folder) && !blue_folder.hidden
       TreeBuilder.build_node_cid(blue_folder.id, 'EmsFolder')
     elsif vm.ems_id # has no folder parent but is in the tree
-      TreeBuilder.build_node_cid(vm.ems_id, 'ExtManagementSystem')
+      if vm.parent_datacenter
+        TreeBuilder.build_node_cid(vm.parent_datacenter.id, 'Datacenter')
+      else
+        TreeBuilder.build_node_cid(vm.ems_id, 'ExtManagementSystem')
+      end
+
     else
       nil # no selection if VmOrTemplate has no parent
     end
@@ -1056,53 +986,6 @@ module VmCommon
   end
 
   private
-
-  # First time thru, kick off the acquire ticket task
-  def console_before_task(console_type)
-    ticket_type = console_type.to_sym
-
-    record = identify_record(params[:id], VmOrTemplate)
-    ems = record.ext_management_system
-    if ems.class.ems_type == 'vmwarews'
-      ticket_type = :vnc if console_type == 'html5'
-      begin
-        ems.validate_remote_console_vmrc_support
-      rescue MiqException::RemoteConsoleNotSupportedError => e
-        add_flash(_("Console access failed: %{message}") % {:message => e.message}, :error)
-        javascript_flash(:spinner_off => true)
-        return
-      end
-    end
-
-    task_id = record.remote_console_acquire_ticket_queue(ticket_type, session[:userid])
-    add_flash(_("Console access failed: Task start failed: ID [%{id}]") %
-                {:id => task_id.to_s}, :error) unless task_id.kind_of?(Integer)
-
-    if @flash_array
-      javascript_flash(:spinner_off => true)
-    else
-      initiate_wait_for_task(:task_id => task_id)
-    end
-  end
-
-  # Task complete, show error or launch console using VNC/MKS/VMRC task info
-  def console_after_task(console_type)
-    miq_task = MiqTask.find(params[:task_id])
-    unless miq_task.results_ready?
-      add_flash(_("Console access failed: %{message}") % {:message => miq_task.message}, :error)
-    end
-    if @flash_array
-      javascript_flash(:spinner_off => true)
-    else # open a window to show a VNC or VMWare console
-      url = if miq_task.task_results[:remote_url]
-              miq_task.task_results[:remote_url]
-            else
-              console_action = console_type == 'html5' ? 'launch_html5_console' : 'launch_vmware_console'
-              url_for(miq_task.task_results.merge(:controller => controller_name, :action => console_action, :id => j(params[:id])))
-            end
-      javascript_open_window(url)
-    end
-  end
 
   # Check for parent nodes missing from vandt tree and return them if any
   def open_parent_nodes(record)
@@ -1350,7 +1233,7 @@ module VmCommon
     if record_showing
       presenter.hide(:form_buttons_div)
       path_dir = @record.kind_of?(ManageIQ::Providers::CloudManager::Vm) || @record.kind_of?(ManageIQ::Providers::CloudManager::Template) ? "vm_cloud" : "vm_common"
-      presenter.update(:main_div, r[:partial => "#{path_dir}/main", :locals => {:controller => 'vm'}])
+      presenter.update(:main_div, r[:partial => "layouts/textual_groups_generic"])
     elsif @in_a_form
       partial_locals = {:controller => 'vm'}
       partial_locals[:action_url] = @lastaction if partial == 'layouts/x_gtl'
@@ -1401,10 +1284,7 @@ module VmCommon
         presenter.show(:custom_left_cell).hide(:default_left_cell)
       end
     elsif @sb[:action] || params[:display]
-      partial_locals = {
-        :controller => ['ontap_storage_volumes', 'ontap_file_shares', 'ontap_logical_disks',
-                        'ontap_storage_systems'].include?(@showtype) ? @showtype.singularize : 'vm'
-      }
+      partial_locals = { :controller => 'vm' }
       if partial == 'layouts/x_gtl'
         partial_locals[:action_url]  = @lastaction
         presenter[:parent_id]    = @record.id           # Set parent rec id for JS function miqGridSort to build URL
@@ -1655,6 +1535,10 @@ module VmCommon
       header = _("Editing %{vm_or_template} \"%{name}\"") %
         {:name => name, :vm_or_template => ui_lookup(:table => table)}
       action = "edit_vm"
+    when 'chargeback'
+      partial = @refresh_partial
+      header = _('Chargeback preview for "%{vm_name}"') % { :vm_name => name }
+      action = 'vm_chargeback'
     when "evm_relationship"
       partial = "vm_common/evm_relationship"
       header = _("Edit %{product} Server Relationship for %{vm_or_template} \"%{name}\"") %
@@ -1739,15 +1623,15 @@ module VmCommon
       action = nil
     else
       # now take care of links on summary screen
-      if ["details", "ontap_storage_volumes", "ontap_file_shares", "ontap_logical_disks", "ontap_storage_systems"].include?(@showtype)
-        partial = "layouts/x_gtl"
-      elsif @showtype == "item"
-        partial = "layouts/item"
-      elsif @showtype == "drift_history"
-        partial = "layouts/#{@showtype}"
-      else
-        partial = "#{@showtype == "compliance_history" ? "shared/views" : "vm_common"}/#{@showtype}"
-      end
+      partial = if @showtype == "details"
+                  "layouts/x_gtl"
+                elsif @showtype == "item"
+                  "layouts/item"
+                elsif @showtype == "drift_history"
+                  "layouts/#{@showtype}"
+                else
+                  "#{@showtype == "compliance_history" ? "shared/views" : "vm_common"}/#{@showtype}"
+                end
       if @showtype == "item"
         header = _("%{action} \"%{item_name}\" for %{vm_or_template} \"%{name}\"") % {
           :vm_or_template => ui_lookup(:table => table),
@@ -1879,7 +1763,7 @@ module VmCommon
   def get_vms(selected = nil)
     page = params[:page].nil? ? 1 : params[:page].to_i
     @current_page = page
-    @items_per_page = @settings[:perpage][@gtl_type.to_sym]   # Get the per page setting for this gtl type
+    @items_per_page = settings(:perpage, @gtl_type.to_sym) # Get the per page setting for this gtl type
     if selected                             # came in with a list of selected ids (i.e. checked vms)
       @record_pages, @records = paginate(:vms, :per_page => @items_per_page, :order => @col_names[get_sort_col] + " " + @sortdir, :conditions => ["id IN (?)", selected])
     else                                      # getting ALL vms

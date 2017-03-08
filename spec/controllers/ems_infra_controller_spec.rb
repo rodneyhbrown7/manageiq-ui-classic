@@ -150,7 +150,7 @@ describe EmsInfraController do
 
     it "when patch operation fails, an error message should be displayed" do
       allow_any_instance_of(ManageIQ::Providers::Openstack::InfraManager::OrchestrationStack)
-        .to receive(:raw_update_stack) { raise _("my error") }
+        .to receive(:update_stack_queue) { raise _("my error") }
       post :scaling, :params => { :id => @ems.id, :scale => "", :orchestration_stack_id => @ems.orchestration_stacks.first.id,
            @orchestration_stack_parameter_compute.name => 2 }
       expect(controller.send(:flash_errors?)).to be_truthy
@@ -219,7 +219,7 @@ describe EmsInfraController do
 
     it "when patch operation fails, an error message should be displayed" do
       allow_any_instance_of(ManageIQ::Providers::Openstack::InfraManager::OrchestrationStack)
-        .to receive(:raw_update_stack) { raise _("my error") }
+        .to receive(:update_stack_queue) { raise _("my error") }
       post :scaledown, :params => {:id => @ems.id, :scaledown => "",
            :orchestration_stack_id => @ems.orchestration_stacks.first.id, :host_ids => [@ems.hosts[1].id]}
       expect(controller.send(:flash_errors?)).to be_truthy
@@ -310,7 +310,7 @@ describe EmsInfraController do
 
       it do
         is_expected.to have_http_status 200
-        is_expected.to render_template(:partial => "layouts/listnav/_ems_infra")
+        is_expected.not_to render_template(:partial => "layouts/listnav/_ems_infra")
       end
     end
 
@@ -321,10 +321,7 @@ describe EmsInfraController do
       get :show, :params => {:id => @ems.id, :display => 'storages'}
       expect(response.status).to eq(200)
       expect(response).to render_template('shared/views/ems_common/show')
-      expect(assigns(:breadcrumbs)).to eq([{:name => "Infrastructure Providers",
-                                            :url  => "/ems_infra/show_list?page=&refresh=y"},
-                                           {:name => "#{@ems.name} (All Managed Datastores)",
-                                            :url  => "/ems_infra/#{@ems.id}?display=storages"}])
+      expect(assigns(:breadcrumbs)).to eq([{:name => "#{@ems.name} (All Datastores)", :url => "/ems_infra/#{@ems.id}?display=storages"}])
 
       # display needs to be saved to session for GTL pagination and such
       expect(session[:ems_infra_display]).to eq('storages')
@@ -339,11 +336,27 @@ describe EmsInfraController do
       post :button, :params => {:id => @ems.id, :display => 'storages', :miq_grid_checks => to_cid(datastore.id), :pressed => "storage_tag", :format => :js}
       expect(response.status).to eq(200)
       _breadcrumbs = controller.instance_variable_get(:@breadcrumbs)
-      expect(assigns(:breadcrumbs)).to eq([{:name => "Infrastructure Providers",
-                                            :url  => "/ems_infra/show_list?page=&refresh=y"},
-                                           {:name => "#{@ems.name} (All Managed Datastores)",
+      expect(assigns(:breadcrumbs)).to eq([{:name => "#{@ems.name} (All Datastores)",
                                             :url  => "/ems_infra/#{@ems.id}?display=storages"},
                                            {:name => "Tag Assignment", :url => "//tagging_edit"}])
+    end
+
+    context "render dashboard" do
+      subject { get :show, :params => { :id => @ems.id, :display => 'dashboard' } }
+      render_views
+
+      it 'never render template show' do
+        is_expected.not_to render_template('shared/views/ems_common/show')
+      end
+
+      it 'never render listnav' do
+        is_expected.not_to render_template(:partial => "layouts/listnav/_ems_container")
+      end
+
+      it 'uses its own template' do
+        is_expected.to have_http_status 200
+        is_expected.not_to render_template(:partial => "ems_container/show_dashboard")
+      end
     end
   end
 
@@ -393,10 +406,7 @@ describe EmsInfraController do
         ems = FactoryGirl.create("ems_vmware")
         get :show, :params => { :id => ems.id }
         breadcrumbs = controller.instance_variable_get(:@breadcrumbs)
-        expect(breadcrumbs).to eq([{:name => "Infrastructure Providers",
-                                    :url  => "/ems_infra/show_list?page=&refresh=y"},
-                                   {:name => "#{ems.name} (Summary)",
-                                    :url  => "/ems_infra/#{ems.id}"}])
+        expect(breadcrumbs).to eq([{:name => "#{ems.name} (Dashboard)", :url => "/ems_infra/#{ems.id}"}])
       end
     end
   end
@@ -801,4 +811,6 @@ describe EmsInfraController do
       expect(vmware.authentications.first).to have_attributes(:userid => "bar", :password => "[FILTERED]")
     end
   end
+
+  include_examples '#download_summary_pdf', :ems_vmware
 end

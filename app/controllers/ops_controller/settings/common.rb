@@ -95,6 +95,10 @@ module OpsController::Settings::Common
           page << set_element_visible("httpd_div", verb)
           page << set_element_visible("httpd_role_div", verb)
         end
+        if @saml_enabled_changed
+          verb = @edit[:new][:authentication][:saml_enabled]
+          page << set_element_visible("saml_local_login_div", verb)
+        end
         if @authusertype_changed
           verb = @edit[:new][:authentication][:user_type] == 'samaccountname'
           page << set_element_visible("user_type_samaccountname", verb)
@@ -173,16 +177,6 @@ module OpsController::Settings::Common
     replication_type = MiqRegion.replication_type
     subscriptions = replication_type == :global ? PglogicalSubscription.all : []
     subscriptions = get_subscriptions_array(subscriptions) unless subscriptions.empty?
-    if replication_type == :global
-      subscriptions.each do |h|
-        region = MiqRegion.find_by(:region => h[:provider_region])
-        h.merge!(
-          :auth_key_configured => !!region.try(:auth_key_configured?),
-          :remote_ws_address   => region.try(:remote_ws_address).to_s
-        )
-      end
-    end
-
     exclusion_list = replication_type == :remote ? MiqPglogical.new.active_excludes : MiqPglogical.default_excludes
 
     render :json => {
@@ -251,43 +245,6 @@ module OpsController::Settings::Common
     javascript_flash
   end
 
-
-  def enable_central_admin
-    replication_type = MiqRegion.replication_type
-
-    if replication_type != :global || !@_params[:provider_region] || !@_params[:ssh_user] || !@_params[:ssh_password]
-      add_flash(_("Invalid data for enabling Central Admin"), :error)
-    else
-      provider_region = @_params[:provider_region]
-      region = MiqRegion.find_by(:region => provider_region)
-      if region
-        region.generate_auth_key_queue(@_params[:ssh_user], @_params[:ssh_password], @_params[:ssh_host])
-        add_flash(_("Enable Central Admin has been successfully initiated"))
-      else
-        add_flash(_("Region Not found"), :error)
-      end
-    end
-    javascript_flash
-  end
-
-  def disable_central_admin
-    replication_type = MiqRegion.replication_type
-
-    if replication_type != :global || !@_params[:provider_region]
-      add_flash(_("Invalid data for disabling Central Admin"), :error)
-    else
-      provider_region = @_params[:provider_region]
-      region = MiqRegion.find_by( :region => provider_region)
-      if region
-        region.remove_auth_key
-        add_flash(_("Central Admin has been disabled"))
-      else
-        add_flash(_("Region Not found"), :error)
-      end
-    end
-    javascript_flash
-  end
-
   private
 
   PASSWORD_MASK = '●●●●●●●●'.freeze
@@ -320,7 +277,8 @@ module OpsController::Settings::Common
         :user            => sub.user,
         :password        => '●●●●●●●●',
         :port            => sub.port,
-        :provider_region => sub.provider_region
+        :provider_region => sub.provider_region,
+        :backlog         => number_to_human_size(sub.backlog)
       }
     end
   end
@@ -603,17 +561,6 @@ module OpsController::Settings::Common
         (@edit[:new][:server][:custom_support_url_description].nil? || @edit[:new][:server][:custom_support_url_description].strip == "") && (!@edit[:new][:server][:custom_support_url].nil? && @edit[:new][:server][:custom_support_url].strip != ""))
       add_flash(_("Custom Support URL and Description both must be entered."), :error)
     end
-    if @sb[:active_tab] == "settings_server" && @edit[:new].fetch_path(:server, :remote_console_type) == "VNC"
-      unless @edit[:new][:server][:vnc_proxy_port] =~ /^\d+$/ || @edit[:new][:server][:vnc_proxy_port].blank?
-        add_flash(_("VNC Proxy Port must be numeric"), :error)
-      end
-      unless (@edit[:new][:server][:vnc_proxy_address].blank? &&
-          @edit[:new][:server][:vnc_proxy_port].blank?) ||
-             (!@edit[:new][:server][:vnc_proxy_address].blank? &&
-                 !@edit[:new][:server][:vnc_proxy_port].blank?)
-        add_flash(_("When configuring a VNC Proxy, both Address and Port are required"), :error)
-      end
-    end
   end
 
   def smartproxy_affinity_get_form_vars(id, checked)
@@ -764,6 +711,9 @@ module OpsController::Settings::Common
       @sb[:newrole] = (params[:ldap_role].to_s == "1") if params[:ldap_role]
       @sb[:new_amazon_role] = (params[:amazon_role].to_s == "1") if params[:amazon_role]
       @sb[:new_httpd_role] = (params[:httpd_role].to_s == "1") if params[:httpd_role]
+      if params[:saml_enabled] && params[:saml_enabled] != auth[:saml_enabled]
+        @saml_enabled_changed = true
+      end
       if params[:authentication_user_type] && params[:authentication_user_type] != auth[:user_type]
         @authusertype_changed = true
       end
@@ -961,8 +911,6 @@ module OpsController::Settings::Common
       @edit[:current].config[:server][:timezone] = "UTC" if @edit[:current].config[:server][:timezone].blank?
       @edit[:current].config[:server][:locale] = "default" if @edit[:current].config[:server][:locale].blank?
       @edit[:current].config[:server][:remote_console_type] ||= "MKS"
-      @edit[:current].config[:server][:vnc_proxy_address] ||= nil
-      @edit[:current].config[:server][:vnc_proxy_port] ||= nil
       @edit[:current].config[:smtp][:enable_starttls_auto] = GenericMailer.default_for_enable_starttls_auto if @edit[:current].config[:smtp][:enable_starttls_auto].nil?
       @edit[:current].config[:smtp][:openssl_verify_mode] ||= nil
       @edit[:current].config[:ntp] ||= {}

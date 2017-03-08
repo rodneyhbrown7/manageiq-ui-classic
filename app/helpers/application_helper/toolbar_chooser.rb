@@ -43,6 +43,8 @@ class ApplicationHelper::ToolbarChooser
       'drift_view_tb'
     elsif %w(ems_container ems_infra).include?(@layout) && %w(main dashboard topology).include?(@display)
       'dashboard_summary_toggle_view_tb'
+    elsif %w(container_project).include?(@layout)
+      "#{@layout}_view_tb"
     elsif !%w(all_tasks all_ui_tasks timeline diagnostics my_tasks my_ui_tasks miq_server usage).include?(@layout) &&
           (!@layout.starts_with?("miq_request")) && !@treesize_buttons &&
           @display == "main" && @showtype == "main" && !@in_a_form
@@ -99,8 +101,10 @@ class ApplicationHelper::ToolbarChooser
                   when :vms_instances_filter_tree then               "vms_center_tb"
                   end
         end
-      elsif @layout == "provider_foreman" && [:configuration_manager_providers_tree, :cs_filter_tree, :configuration_scripts_tree].include?(x_active_tree)
+      elsif @layout == "provider_foreman" && [:configuration_manager_providers_tree, :configuration_manager_cs_filter_tree].include?(x_active_tree)
         return center_toolbar_filename_configuration_manager_providers
+      elsif @layout == "automation_manager"
+        return center_toolbar_filename_automation_manager
       elsif [:infra_networking_tree].include?(x_active_tree)
         return center_toolbar_filename_infra_networking
       else
@@ -460,8 +464,6 @@ class ApplicationHelper::ToolbarChooser
       elsif to_display_center.include?(@display)
         return "#{@display}_center"
       end
-    elsif @lastaction == "arbitration_profiles"
-      return @showtype == "item" ? "arbitration_profile_center_tb" : "arbitration_profiles_center_tb"
     elsif @lastaction == "compare_miq" || @lastaction == "compare_compress"
       return "compare_center_tb"
     elsif @lastaction == "drift_history"
@@ -471,15 +473,76 @@ class ApplicationHelper::ToolbarChooser
     else
       # show_list and show screens
       unless @in_a_form
+<<<<<<< HEAD
         if %w(auth_key_pair_cloud availability_zone host_aggregate cloud_object_store_object cloud_object_store_container cloud_tenant
               cloud_volume cloud_volume_backup cloud_volume_snapshot configuration_job container_group container_node container_service
               ems_cloud ems_cluster ems_container ems_datawarehouse ems_middleware container_project container_route container_replicator container_image
               ems_network security_group floating_ip cloud_subnet network_router network_topology network_port cloud_network load_balancer
-              container_image_registry ems_infra flavor host container_build infra_networking infra_topology ems_storage
-              ontap_file_share ontap_logical_disk container_topology middleware_topology cloud_topology middleware_server
+              container_image_registry ems_infra ems_physical_infra physical_server flavor host container_build infra_networking infra_topology ems_storage
+              container_topology middleware_topology cloud_topology middleware_server
               middleware_deployment middleware_datasource middleware_domain middleware_server_group middleware_messaging
-              ontap_storage_system orchestration_stack resource_pool storage_manager container_template
+              orchestration_stack resource_pool storage_manager container_template
               ems_block_storage ems_object_storage timeline usage).include?(@layout)
+=======
+        if %w(auth_key_pair_cloud
+              availability_zone
+              host_aggregate
+              cloud_object_store_object
+              cloud_object_store_container
+              cloud_tenant
+              cloud_volume
+              cloud_volume_backup
+              cloud_volume_snapshot
+              configuration_job
+              container_group
+              container_node
+              container_service
+              ems_cloud
+              ems_cluster
+              ems_container
+              ems_datawarehouse
+              ems_middleware
+              container_project
+              container_route
+              container_replicator
+              container_image
+              ems_network
+              security_group
+              floating_ip
+              cloud_subnet
+              network_router
+              network_topology
+              network_port
+              cloud_network
+              load_balancer
+              container_image_registry
+              ems_infra
+              ems_physical_infra
+              flavor
+              host
+              container_build
+              infra_networking
+              infra_topology
+              ems_storage
+              container_topology
+              middleware_topology
+              cloud_topology
+              middleware_server
+              middleware_deployment
+              middleware_datasource
+              middleware_domain
+              middleware_server_group
+              middleware_messaging
+              orchestration_stack
+              physical_infra_topology
+              resource_pool
+              storage_manager
+              container_template
+              ems_block_storage
+              ems_object_storage
+              timeline
+              usage).include?(@layout)
+>>>>>>> d195c54503322ea4cc67f86402af34f7f76fb13b
           if ["show_list"].include?(@lastaction)
             return "#{@layout.pluralize}_center_tb"
           else
@@ -509,10 +572,21 @@ class ApplicationHelper::ToolbarChooser
     nodes = x_node.split('-')
     if x_active_tree == :configuration_manager_providers_tree
       configuration_manager_providers_tree_center_tb(nodes)
-    elsif x_active_tree == :cs_filter_tree
+    elsif x_active_tree == :configuration_manager_cs_filter_tree
       cs_filter_tree_center_tb(nodes)
     elsif x_active_tree == :configuration_scripts_tree
       configuration_scripts_tree_center_tb(nodes)
+    end
+  end
+
+  def center_toolbar_filename_automation_manager
+    nodes = x_node.split('-')
+    if x_active_tree == :automation_manager_providers_tree
+      automation_manager_providers_tree_center_tb(nodes)
+    elsif x_active_tree == :automation_manager_cs_filter_tree
+      automation_manager_cs_filter_tree_center_tb(nodes)
+    elsif x_active_tree == :configuration_scripts_tree
+      automation_manager_configuration_scripts_tree_center_tb(nodes)
     end
   end
 
@@ -544,6 +618,29 @@ class ApplicationHelper::ToolbarChooser
   end
 
   def configuration_scripts_tree_center_tb(nodes)
+    if %w(root at).include?(nodes.first)
+      "configuration_scripts_center_tb"
+    else
+      "configuration_script_center_tb"
+    end
+  end
+
+  def automation_manager_providers_tree_center_tb(nodes)
+    case nodes.first
+    when "root" then  "automation_manager_providers_center_tb"
+    when "at"   then  "automation_manager_provider_center_tb"
+    when "f"    then  inventory_group_center_tb
+    when "xx"   then  "configured_systems_ansible_center_tb"
+    end
+  end
+
+  def automation_manager_cs_filter_tree_center_tb(nodes)
+    case nodes.first
+    when "root", "ms", "xx", "csa" then "configured_systems_ansible_center_tb"
+    end
+  end
+
+  def automation_manager_configuration_scripts_tree_center_tb(nodes)
     if %w(root at).include?(nodes.first)
       "configuration_scripts_center_tb"
     else

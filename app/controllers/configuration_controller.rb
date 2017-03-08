@@ -164,12 +164,12 @@ class ConfigurationController < ApplicationController
 
           # Now copying ALL display settings into the :css hash so we can easily add new settings
           @settings[:css] ||= {}
-          @settings[:css].merge!(@settings[:display])
-          @settings[:css].merge!(THEME_CSS_SETTINGS[@settings[:display][:theme]])
+          @settings[:css].merge!(settings(:display))
+          @settings[:css].merge!(THEME_CSS_SETTINGS[settings(:display, :theme)])
 
           @css ||= {}
-          @css.merge!(@settings[:display])
-          @css.merge!(THEME_CSS_SETTINGS[@settings[:display][:theme]])
+          @css.merge!(settings(:display))
+          @css.merge!(THEME_CSS_SETTINGS[settings(:display, :theme)])
           set_user_time_zone
           add_flash(_("User Interface settings saved for User %{name}") % {:name => current_user.name})
         else
@@ -383,8 +383,17 @@ class ConfigurationController < ApplicationController
       session[:flash_msgs] = @flash_array.dup                 # Put msgs in session for next transaction
       javascript_redirect :action => 'change_tab', :typ => "timeprofiles", :tab => 4, :id => @timeprofile.id.to_s
     elsif params[:button] == "save"
-      params[:all_days] ? days = (0..6).to_a : days = params[:days] ? params[:days].collect{|i| i.to_i} : []
-      params[:all_hours] ? hours = (0..23).to_a : hours = params[:hours] ? params[:hours].collect{|i| i.to_i} : []
+      if params[:all_days] == 'true'
+        days = (0..6).to_a
+      else
+        days = params[:dayValues].each_with_index.map { |item, index| item == 'true' ? index : nil }.compact
+      end
+      if params[:all_hours] == 'true'
+        hours = (0..23).to_a
+      else
+        all_hours = params[:hourValuesAMFirstHalf] + params[:hourValuesAMSecondHalf] + params[:hourValuesPMFirstHalf] + params[:hourValuesPMSecondHalf]
+        hours = all_hours.each_with_index.map { |item, index| item == 'true' ? index : nil }.compact
+      end
       @timeprofile.description = params[:description]
       @timeprofile.profile_key = params[:profile_type] == "user" ? session[:userid] : nil
       @timeprofile.profile_type = params[:profile_type]
@@ -576,6 +585,7 @@ class ConfigurationController < ApplicationController
       @edit[:new][:perpage][:tile] = params[:perpage_tile].to_i if params[:perpage_tile]
       @edit[:new][:perpage][:list] = params[:perpage_list].to_i if params[:perpage_list]
       @edit[:new][:perpage][:reports] = params[:perpage_reports].to_i if params[:perpage_reports]
+      @edit[:new][:topology][:containers_max_objects] = params[:topology_containers_max_objects].to_i if params[:topology_containers_max_objects]
       @edit[:new][:display][:theme] = params[:display_theme] unless params[:display_theme].nil?
       @edit[:new][:display][:bg_color] = params[:bg_color] unless params[:bg_color].nil?
       @edit[:new][:display][:reporttheme] = params[:display_reporttheme] unless params[:display_reporttheme].nil?

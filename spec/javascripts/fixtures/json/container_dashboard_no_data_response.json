@@ -49,19 +49,31 @@
     "providers": [
       {
         "count": 2,
-        "iconImage": "/assets/svg/vendor-openshift-1d8ff43788707.svg"
+        "iconImage": "...openshift..."
       },
       {
         "count": 1,
-        "iconImage": "/assets/svg/vendor-kubernetes-1d8ff43788707.svg"
+        "iconImage": "...kubernetes..."
       }
     ],
     "ems_utilization": {
-      "cpu": null,
-      "mem": null
+      "interval_name": "realtime",
+      "xy_data": {
+        "cpu": null,
+        "mem": null
+      }
     },
-    "daily_network_metrics" : null,
-    "daily_pod_metrics" : null,
-    "daily_image_metrics" : null
+    "network_metrics" : {
+      "interval_name": "realtime",
+      "xy_data": null
+    },
+    "pod_metrics" : {
+      "interval_name": "hourly",
+      "xy_data": null
+    },
+    "image_metrics" : {
+      "interval_name": "hourly",
+      "xy_data": null
+    }
   }
 }

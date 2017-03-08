@@ -7,11 +7,11 @@ module ConfigurationJobHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(name description type status status_reason)
+    TextualGroup.new(_("Properties"), %i(name description type status status_reason))
   end
 
   def textual_group_relationships
-    %i(provider service parameters status)
+    TextualGroup.new(_("Relationships"), %i(provider service parameters status))
   end
 
   #
@@ -37,20 +37,20 @@ module ConfigurationJobHelper::TextualSummary
     else
       h[:value] = service.name
       h[:title] = _("Show this Service")
-      h[:link]  = url_for(:controller => 'service', :action => 'show', :id => to_cid(service.id))
+      h[:link]  = url_for_only_path(:controller => 'service', :action => 'show', :id => to_cid(service.id))
     end
     h
   end
 
   def textual_provider
-    h = {:label => _("Provider"), :image => "svg/vendor-ansible_tower_configuration.svg"}
+    h = {:label => _("Provider"), :image => "svg/vendor-automation_manager_configuration.svg"}
     provider = @record.ext_management_system
     if provider.nil?
       h[:value] = _("None")
     else
       h[:value] = provider.name
       h[:title] = _("Show this Parent Provider")
-      h[:link]  = url_for(:controller => 'provider_foreman', :action => 'explorer', :id => "at-#{to_cid(provider.id)}")
+      h[:link]  = url_for_only_path(:controller => 'provider_foreman', :action => 'explorer', :id => "at-#{to_cid(provider.id)}")
     end
     h
   end
@@ -59,7 +59,7 @@ module ConfigurationJobHelper::TextualSummary
     num   = @record.number_of(:parameters)
     h     = {:label => _("Parameters"), :icon => "product product-parameter", :value => num}
     if num > 0
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'parameters', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'parameters', :id => @record)
       h[:title] = _("Show all parameters")
     end
     h

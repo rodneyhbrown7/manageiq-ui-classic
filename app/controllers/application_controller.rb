@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/LineLength, Lint/EmptyWhen
 require 'open-uri'
 require 'simple-rss'
 
@@ -16,7 +17,7 @@ class ApplicationController < ActionController::Base
     # This secret is reset to a value found in the miq_databases table in
     # MiqWebServerWorkerMixin.configure_secret_token for rails server, UI, and
     # web service worker processes.
-    protect_from_forgery :secret => SecureRandom.hex(64), :except => :csp_report, :with => :exception
+    protect_from_forgery :secret => SecureRandom.hex(64), :except => [:authenticate, :external_authenticate, :kerberos_authenticate, :saml_login, :initiate_saml_login, :csp_report], :with => :exception
   end
 
   helper ChartingHelper
@@ -66,8 +67,7 @@ class ApplicationController < ActionController::Base
   end
 
   def allow_websocket
-    proto = request.ssl? ? 'wss' : 'ws'
-    override_content_security_policy_directives(:connect_src => ["'self'", "#{proto}://#{request.env['HTTP_HOST']}"])
+    override_content_security_policy_directives(:connect_src => ["'self'", websocket_origin])
   end
   private :allow_websocket
 
@@ -76,9 +76,6 @@ class ApplicationController < ActionController::Base
   end
 
   # Convert Controller Name to Actual Model
-  # Examples:
-  #   CimStorageExtentController => CimStorageExtent
-  #   OntapFileShareController   => OntapFileShare
   def self.model
     @model ||= name[0..-11].constantize
   end
@@ -87,9 +84,6 @@ class ApplicationController < ActionController::Base
     controller_name
   end
 
-  # Examples:
-  #   CimStorageExtentController => cim_storage_extent
-  #   OntapFileShareController   => ontap_file_share
   def self.table_name
     @table_name ||= model.name.underscore
   end
@@ -151,6 +145,15 @@ class ApplicationController < ActionController::Base
     redirect_to(:action => params[:tab], :id => params[:id])
   end
 
+  def download_summary_pdf
+    @record = identify_record(params[:id])
+    yield if block_given?
+    return if record_no_longer_exists?(@record)
+    get_tagdata(@record) if @record.try(:taggings)
+    @display = "download_pdf"
+    set_summary_pdf_data
+  end
+
   def build_targets_hash(items, typ = true)
     @targets_hash ||= {}
     if typ
@@ -187,7 +190,7 @@ class ApplicationController < ActionController::Base
       response.headers["Cache-Control"] = "cache, must-revalidate"
       response.headers["Pragma"] = "public"
     end
-    rpt.to_chart(@settings[:display][:reporttheme], true, MiqReport.graph_options(params[:width], params[:height]))
+    rpt.to_chart(settings(:display, :reporttheme), true, MiqReport.graph_options(params[:width], params[:height]))
     render Charting.render_format => rpt.chart
   end
 
@@ -271,14 +274,14 @@ class ApplicationController < ActionController::Base
   def saved_report_paging
     # Check new paging parms coming in
     if params[:ppsetting]
-      @settings[:perpage][:reports] = params[:ppsetting].to_i
+      @settings.store_path(:perpage, :reports, params[:ppsetting].to_i)
       @sb[:pages][:current] = 1
-      total = @sb[:pages][:items] / @settings[:perpage][:reports]
-      total += 1 if @sb[:pages][:items] % @settings[:perpage][:reports] != 0
+      total = @sb[:pages][:items] / settings(:perpage, :reports)
+      total += 1 if @sb[:pages][:items] % settings(:perpage, :reports) != 0
       @sb[:pages][:total] = total
     end
     @sb[:pages][:current] = params[:page].to_i if params[:page]
-    @sb[:pages][:perpage] = @settings[:perpage][:reports]
+    @sb[:pages][:perpage] = settings(:perpage, :reports)
 
     rr = MiqReportResult.find(@sb[:pages][:rr_id])
     @html = report_build_html_table(rr.report_results,
@@ -299,7 +302,12 @@ class ApplicationController < ActionController::Base
   # Common method to show a standalone report
   def report_only
     @report_only = true                 # Indicate stand alone report for views
-
+    # Render error message if report doesn't exist
+    if params[:rr_id].nil? && @sb.fetch_path(:pages, :rr_id).nil?
+      add_flash(_("This report isn't generated yet. It cannot be rendered."), :error)
+      render :partial => "layouts/flash_msg"
+      return
+    end
     # Dashboard widget will send in report result id else, find report result in the sandbox
     search_id = params[:rr_id] ? params[:rr_id].to_i : @sb[:pages][:rr_id]
     rr = MiqReportResult.find(search_id)
@@ -313,8 +321,8 @@ class ApplicationController < ActionController::Base
     @title    = @report.title
 
     @zgraph = case @ght_type
-              when 'tabular'         then nil
-              when 'graph', 'hybrid' then true
+              when 'tabular' then nil
+              when 'hybrid'  then true
               end
 
     render controller_name == 'report' ? 'show' : 'shared/show_report'
@@ -577,7 +585,7 @@ class ApplicationController < ActionController::Base
     @sb[:pages] ||= {}
     @sb[:pages][:rr_id] = rr.id
     @sb[:pages][:items] = @report.extras[:total_html_rows]
-    @sb[:pages][:perpage] = @settings[:perpage][:reports]
+    @sb[:pages][:perpage] = settings(:perpage, :reports)
     @sb[:pages][:current] = 1
     total = @sb[:pages][:items] / @sb[:pages][:perpage]
     total += 1 if @sb[:pages][:items] % @sb[:pages][:perpage] != 0
@@ -880,6 +888,8 @@ class ApplicationController < ActionController::Base
           celltext = Dictionary.gettext(row[col], :type => :model, :notfound => :titleize)
         when 'approval_state'
           celltext = _(PROV_STATES[row[col]])
+        when 'prov_type'
+          celltext = row[col] ? _(ServiceTemplate::CATALOG_ITEM_TYPES[row[col]]) : ''
         when "result"
           new_row[:cells] << {:span => result_span_class(row[col]), :text => row[col].titleize}
         when "severity"
@@ -950,7 +960,7 @@ class ApplicationController < ActionController::Base
   # Return the icon classname for the list view icon of a db,id pair
   # this always supersedes listicon_image if not nil
   def listicon_icon(item)
-    item.decorate.try(:fonticon) if item.decorator_class?
+    item.decorate.try(:fonticon)
   end
 
   # Return the image name for the list view icon of a db,id pair
@@ -967,7 +977,7 @@ class ApplicationController < ActionController::Base
             when ManageIQ::Providers::CloudManager::AuthKeyPair
               "100/auth_key_pair.png"
             else
-              item.decorate.try(:listicon_image) if item.decorator_class?
+              item.decorate.try(:listicon_image)
             end
 
     image || default
@@ -1420,17 +1430,19 @@ class ApplicationController < ActionController::Base
   end
 
   def get_view_calculate_gtl_type(db_sym)
-    gtl_type = @settings.fetch_path(:views, db_sym) unless %w(scanitemset miqschedule pxeserver customizationtemplate).include?(db_sym.to_s)
+    gtl_type = settings(:views, db_sym) unless %w(scanitemset miqschedule pxeserver customizationtemplate).include?(db_sym.to_s)
     gtl_type = 'grid' if ['vm'].include?(db_sym.to_s) && request.parameters[:controller] == 'service'
     gtl_type ||= 'list' # return a sane default
     gtl_type
   end
 
+  def dashboard_view
+    false
+  end
+
   def get_view_process_search_text(view)
     # Check for new search by name text entered
-    if params[:search] &&
-       # Disabled search for Storage CIs until backend is fixed to handle evm_display_name field
-       !["CimBaseStorageExtent", "OntapStorageSystem", "OntapLogicalDisk", "OntapStorageVolume", "OntapFileShare", "SniaLocalFileSystem"].include?(view.db)
+    if params[:search]
       @search_text = params[:search][:text].blank? ? nil : params[:search][:text].strip
     elsif params[:search_text] && @explorer
       @search_text = params[:search_text].blank? ? nil : params[:search_text].strip
@@ -1511,8 +1523,7 @@ class ApplicationController < ActionController::Base
     sortdir_sym = "#{sort_prefix}_sortdir".to_sym
 
     # Set up the list view type (grid/tile/list)
-    @settings ||= {:views => {}, :perpage => {}}
-    @settings[:views][db_sym] = params[:type] if params[:type]  # Change the list view type, if it's sent in
+    @settings.store_path(:views, db_sym, params[:type]) if params[:type] # Change the list view type, if it's sent in
 
     @gtl_type = get_view_calculate_gtl_type(db_sym)
 
@@ -1521,7 +1532,7 @@ class ApplicationController < ActionController::Base
 
     # Check for changed settings in params
     if params[:ppsetting]                             # User selected new per page value
-      @settings[:perpage][perpage_key(dbname)] = params[:ppsetting].to_i
+      @settings.store_path(:perpage, perpage_key(dbname), params[:ppsetting].to_i)
     elsif params[:sortby]                             # New sort order (by = col click, choice = pull down)
       params[:sortby]      = params[:sortby].to_i - 1
       params[:sort_choice] = view.headers[params[:sortby]]
@@ -1622,13 +1633,7 @@ class ApplicationController < ActionController::Base
   end
 
   def get_view_pages_perpage(dbname)
-    perpage = 10 # return a sane default
-    return perpage unless @settings && @settings.key?(:perpage)
-
-    key = perpage_key(dbname)
-    perpage = @settings[:perpage][key] if key && @settings[:perpage].key?(key)
-
-    perpage
+    settings_default(10, :perpage, perpage_key(dbname))
   end
 
   # Create the pages hash and return with the view
@@ -1678,8 +1683,8 @@ class ApplicationController < ActionController::Base
         javascript_redirect edit_ems_datawarehouse_path(params[:id])
       elsif params[:pressed] == "ems_network_edit" && params[:id]
         javascript_redirect edit_ems_network_path(params[:id])
-      elsif %w(arbitration_profile_edit arbitration_profile_new).include?(params[:pressed]) && params[:id]
-        javascript_redirect :action => @refresh_partial, :id => params[:id], :show => @redirect_id
+      elsif params[:pressed] == "ems_physical_infra_edit" && params[:id]
+        javascript_redirect edit_ems_physical_infra_path(params[:id])
       else
         javascript_redirect :action => @refresh_partial, :id => @redirect_id
       end
@@ -1701,8 +1706,7 @@ class ApplicationController < ActionController::Base
                    "show_list"
                  end
 
-    ajax_url = ! %w(OntapStorageSystem OntapLogicalDisk OntapStorageVolume
-                    OntapFileShare SecurityGroup CloudVolume).include?(view.db)
+    ajax_url = !%w(SecurityGroup CloudVolume).include?(view.db)
     ajax_url = false if request.parameters[:controller] == "service" && view.db == "Vm"
     ajax_url = false unless @explorer
 
@@ -1790,6 +1794,17 @@ class ApplicationController < ActionController::Base
     end
 
     vms = VmOrTemplate.where(:id => vm_ids)
+    if typ == "migrate"
+      # if one of the providers in question cannot support simultaneous migration of his subset of
+      # the selected VMs, we abort
+      if vms.group_by(&:ext_management_system).except(nil).any? do |ems, ems_vms|
+        ems.respond_to?(:supports_migrate_for_all?) && !ems.supports_migrate_for_all?(ems_vms)
+      end
+        add_flash(_("These VMs can not be migrated together."), :error)
+        return
+      end
+    end
+
     vms.each do |vm|
       if vm.respond_to?("supports_#{typ}?")
         render_flash_not_applicable_to_model(typ) unless vm.send("supports_#{typ}?")
@@ -1934,7 +1949,7 @@ class ApplicationController < ActionController::Base
     @detail_sortdir = @sb[:detail_sortdir].nil? ? "ASC" : @sb[:detail_sortdir]    # sort column for detail lists
 
     # Get performance hash, if it is in the sandbox for the running controller
-    @perf_options = @sb[:perf_options] ? copy_hash(@sb[:perf_options]) : {}
+    @perf_options = @sb[:perf_options] || Performance::Options.new
 
     # Set @edit key default for the expression editor to use
     @expkey = session[:expkey] ? session[:expkey] : :expression
@@ -2096,9 +2111,9 @@ class ApplicationController < ActionController::Base
       case controller_name
 
       # These controllers don't use breadcrumbs, see above get method to store URL
-      when "dashboard", "report", "support", "alert", "jobs", "ui_jobs", "miq_ae_tools", "miq_policy", "miq_action", "miq_capacity", "chargeback", "service"
+      when "dashboard", "report", "support", "alert", "alert_center", "jobs", "ui_jobs", "miq_ae_tools", "miq_policy", "miq_action", "miq_capacity", "chargeback", "service"
 
-      when "ontap_storage_system", "ontap_logical_disk", "cim_base_storage_extent", "ontap_storage_volume", "ontap_file_share", "snia_local_file_system", "storage_manager"
+      when "storage_manager"
         session[:tab_bc][:sto] = @breadcrumbs.dup if ["show", "show_list", "index"].include?(action_name)
       when "ems_cloud", "availability_zone", "host_aggregate", "flavor"
         session[:tab_bc][:clo] = @breadcrumbs.dup if ["show", "show_list"].include?(action_name)
@@ -2155,7 +2170,7 @@ class ApplicationController < ActionController::Base
     end
 
     # Put performance hash, if it exists, into the sandbox for the running controller
-    @sb[:perf_options] = copy_hash(@perf_options) if @perf_options
+    @sb[:perf_options] = @perf_options
 
     # Save @assign hash in sandbox
     @sb[:assign] = @assign ? copy_hash(@assign) : nil
@@ -2341,24 +2356,7 @@ class ApplicationController < ActionController::Base
   end
 
   def set_gettext_locale
-    user_settings =  current_user.try(:settings)
-    user_locale = user_settings[:display][:locale] if user_settings &&
-                                                      user_settings.key?(:display) &&
-                                                      user_settings[:display].key?(:locale)
-    if user_locale == 'default' || user_locale.nil?
-      server_locale = ::Settings.server.locale
-      # user settings && server settings == 'default'
-      # OR not defined
-      # use HTTP_ACCEPT_LANGUAGE
-      locale = if server_locale == "default" || server_locale.nil?
-                 request.headers['Accept-Language']
-               else
-                 server_locale
-               end
-    else
-      locale = user_locale
-    end
-    FastGettext.set_locale(locale)
+    FastGettext.set_locale(LocaleResolver.resolve(current_user, request.headers))
   end
 
   def flip_sort_direction(direction)

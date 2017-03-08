@@ -29,11 +29,11 @@ describe TreeNode::ExtManagementSystem do
     :ems_openstack                       => { :tip_prefix => 'Ems Cloud' },
     :ems_vmware_cloud                    => { :tip_prefix => 'Ems Cloud' },
     # Other remaining providers
-    :configuration_manager_ansible_tower => { :key_prefix => 'at-' },
+    :automation_manager_ansible_tower    => { :key_prefix => 'at-' },
     :configuration_manager_foreman       => { :key_prefix => 'fr-' },
     :provisioning_manager_foreman        => {},
     :ems_physical_infra                  => {},
-    :ems_openshift_enterprise            => {},
+    :ems_openshift                       => {},
     :ems_hawkular                        => {},
     :ems_azure_network                   => {},
     :ems_amazon_network                  => {},

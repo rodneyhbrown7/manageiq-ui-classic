@@ -4,11 +4,11 @@ module CloudVolumeBackupHelper::TextualSummary
   include TextualMixins::TextualName
 
   def textual_group_properties
-    %i(name status size)
+    TextualGroup.new(_("Properties"), %i(name status size))
   end
 
   def textual_group_relationships
-    %i(parent_ems_cloud ems_storage cloud_volume cloud_tenant)
+    TextualGroup.new(_("Relationships"), %i(parent_ems_cloud ems_storage cloud_volume cloud_tenant))
   end
 
   def textual_status
@@ -37,7 +37,7 @@ module CloudVolumeBackupHelper::TextualSummary
     h = {:label => label, :icon => "pficon pficon-cloud-tenant", :value => (cloud_tenant.try(:name) || _("None"))}
     if cloud_tenant && role_allows?(:feature => "cloud_tenant_show")
       h[:title] = _("Show this Backup's %{parent}") % {:parent => label}
-      h[:link]  = url_for(:controller => 'cloud_tenant', :action => 'show', :id => cloud_tenant)
+      h[:link]  = url_for_only_path(:controller => 'cloud_tenant', :action => 'show', :id => cloud_tenant)
     end
     h
   end

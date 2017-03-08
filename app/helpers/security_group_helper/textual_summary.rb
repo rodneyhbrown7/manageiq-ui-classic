@@ -7,16 +7,20 @@ module SecurityGroupHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(description type)
+    TextualGroup.new(_("Properties"), %i(description type))
   end
 
   def textual_group_relationships
-    %i(parent_ems_cloud ems_network cloud_tenant instances orchestration_stack network_ports)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(parent_ems_cloud ems_network cloud_tenant instances orchestration_stack network_ports)
+    )
   end
 
   def textual_group_firewall
     return nil if @record.firewall_rules.empty?
-    @record.firewall_rules.collect do |rule|
+
+    items = @record.firewall_rules.collect do |rule|
       [
         rule.network_protocol,
         rule.host_protocol,
@@ -26,6 +30,12 @@ module SecurityGroupHelper::TextualSummary
         (rule.source_ip_range || rule.source_security_group.try(:name) || "<None>")
       ]
     end.sort
+
+    TextualTable.new(
+      _("Firewall Rules"),
+      items,
+      [_("Network Protocol"), _("Host Protocol"), _("Direction"), _("Port"), _("End Port"), _("Source")]
+    )
   end
 
   #
@@ -44,7 +54,7 @@ module SecurityGroupHelper::TextualSummary
     num   = @record.number_of(:vms)
     h     = {:label => label, :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'instances')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'instances')
       h[:title] = _("Show all %{label}") % {:label => label}
     end
     h

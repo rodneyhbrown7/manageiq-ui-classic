@@ -355,8 +355,7 @@ class TreeBuilder
   X_TREE_NODE_CLASSES = {
     # Catalog explorer trees
     :configuration_manager_providers => "TreeBuilderConfigurationManager",
-    :cs_filter                       => "TreeBuilderConfigurationManagerConfiguredSystems",
-    :configuration_scripts           => "TreeBuilderConfigurationManagerConfigurationScripts",
+    :configuration_manager_cs_filter => "TreeBuilderConfigurationManagerConfiguredSystems",
 
     # Catalog explorer trees
     :ot                              => "TreeBuilderOrchestrationTemplates",
@@ -441,6 +440,12 @@ class TreeBuilder
 
     :network                         => "TreeBuilderNetwork",
     :df                              => "TreeBuilderDefaultFilters",
+
+    # Automation trees
+    :automation_manager_providers    => "TreeBuilderAutomationManagerProviders",
+    :automation_manager_cs_filter    => "TreeBuilderAutomationManagerConfiguredSystems",
+    :configuration_scripts           => "TreeBuilderAutomationManagerConfigurationScripts",
+
   }
 
   # Tree node prefixes for generic explorers
@@ -455,7 +460,7 @@ class TreeBuilder
     "asr" => "AssignedServerRole",
     "az"  => "AvailabilityZone",
     "azu" => "OrchestrationTemplateAzure",
-    "at"  => "ManageIQ::Providers::AnsibleTower::ConfigurationManager",
+    "at"  => "ManageIQ::Providers::AnsibleTower::AutomationManager",
     "cl"  => "Classification",
     "cf"  => "ConfigurationScript",
     "cfp" => "ConfigurationScriptPayload",
@@ -478,7 +483,7 @@ class TreeBuilder
     "ev"  => "MiqEventDefinition",
     "c"   => "EmsCluster",
     "csf" => "ManageIQ::Providers::Foreman::ConfigurationManager::ConfiguredSystem",
-    "csa" => "ManageIQ::Providers::AnsibleTower::ConfigurationManager::ConfiguredSystem",
+    "csa" => "ManageIQ::Providers::AnsibleTower::AutomationManager::ConfiguredSystem",
     "f"   => "EmsFolder",
     "fr"  => "ManageIQ::Providers::Foreman::ConfigurationManager",
     "g"   => "MiqGroup",

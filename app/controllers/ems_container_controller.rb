@@ -4,6 +4,8 @@ class EmsContainerController < ApplicationController
   include EmsCommon        # common methods for EmsInfra/Cloud/Container controllers
   include Mixins::EmsCommonAngular
   include Mixins::GenericSessionMixin
+  include Mixins::DashboardViewMixin
+  include ContainersExternalLoggingSupportMixin
 
   before_action :check_privileges
   before_action :get_session_data
@@ -35,6 +37,11 @@ class EmsContainerController < ApplicationController
   end
 
   private
+
+  def textual_group_list
+    [%i(properties endpoints status miq_custom_attributes), %i(relationships topology smart_management)]
+  end
+  helper_method :textual_group_list
 
   ############################
   # Special EmsCloud link builder for restful routes

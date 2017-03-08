@@ -3,6 +3,8 @@ class MiddlewareServerController < ApplicationController
   include Mixins::GenericShowMixin
   include EmsCommon
   include MiddlewareCommonMixin
+  include Mixins::MiddlewareDeploymentsMixin
+
 
   before_action :check_privileges
   before_action :get_session_data
@@ -95,33 +97,6 @@ class MiddlewareServerController < ApplicationController
     ALL_OPERATIONS
   end
 
-  def add_deployment
-    selected_server = identify_selected_entities
-    deployment_name = params["runtimeName"]
-
-    existing_deployment = false
-    if params["forceDeploy"] == 'false'
-      existing_deployment = MiddlewareDeployment.find_by(:name => deployment_name, :server_id => selected_server)
-    end
-
-    if existing_deployment
-      render :json => {
-        :status => :warn, :msg => _("Deployment \"%s\" already exists on this server.") % deployment_name
-      }
-    else
-      params[:file] = {
-        :file         => params["file"],
-        :enabled      => params["enabled"],
-        :force_deploy => params["forceDeploy"],
-        :runtime_name => params["runtimeName"]
-      }
-      run_server_operation(STANDALONE_SERVER_OPERATIONS.fetch(:middleware_add_deployment), selected_server)
-      render :json => {
-        :status => :success, :msg => _("Deployment \"%s\" has been initiated on this server.") % deployment_name
-      }
-    end
-  end
-
   def add_jdbc_driver
     selected_server = identify_selected_entities
 
@@ -141,6 +116,18 @@ class MiddlewareServerController < ApplicationController
     }
   end
 
+  def jdbc_drivers
+    mw_server = MiddlewareServer.find(from_cid(params[:server_id]))
+    mw_manager = mw_server.ext_management_system
+    drivers = mw_manager.jdbc_drivers(mw_server.feed)
+
+    render :json => {
+      :status => :success, :data => drivers
+    }
+  rescue StandardError => err
+    render :json => {:msg => err.message}, :status => :internal_server_error
+  end
+
   def add_datasource
     datasource_name = params["datasourceName"]
     selected_server = identify_selected_entities
@@ -152,12 +139,16 @@ class MiddlewareServerController < ApplicationController
       }
     else
       params[:datasource] = {
-        :datasourceName => datasource_name,
-        :xaDatasource   => params["xaDatasource"],
-        :jndiName       => params["jndiName"],
-        :driverName     => params["driverName"],
-        :driverClass    => params["driverClass"],
-        :connectionUrl  => params["connectionUrl"]
+        :datasourceName       => datasource_name,
+        :xaDatasource         => params["xaDatasource"],
+        :jndiName             => params["jndiName"],
+        :driverName           => params["driverName"],
+        :driverClass          => params["driverClass"],
+        :connectionUrl        => params["connectionUrl"],
+        :userName             => params["userName"],
+        :password             => params["password"],
+        :securityDomain       => params["securityDomain"],
+        :datasourceProperties => params["datasourceProperties"]
       }
 
       run_server_operation(STANDALONE_SERVER_OPERATIONS.fetch(:middleware_add_datasource), selected_server)
@@ -167,15 +158,8 @@ class MiddlewareServerController < ApplicationController
     end
   end
 
-  def show
-    return unless init_show
-    @display = params[:display] unless params[:display].nil?
-    case @display
-    when 'middleware_datasources' then show_middleware_entities(MiddlewareDatasource)
-    when 'middleware_deployments' then show_middleware_entities(MiddlewareDeployment)
-    when 'middleware_messagings' then show_middleware_entities(MiddlewareMessaging)
-    else show_middleware
-    end
+  def self.display_methods
+    %i(middleware_datasources middleware_deployments middleware_messagings)
   end
 
   def button
@@ -204,12 +188,17 @@ class MiddlewareServerController < ApplicationController
       operation_info = ALL_OPERATIONS.fetch(operation)
       run_server_param_operation(operation_info, selected_servers)
     else
-      msg = _("Unknown server operation: ") + operation
+      msg = _("Unknown server operation: %{operation}") % {:operation => operation.to_s}
       render :json => {:status => :error, :msg => msg}
     end
   end
 
-  private ############################
+  private
+
+  def textual_group_list
+    [%i(properties), %i(relationships smart_management)]
+  end
+  helper_method :textual_group_list
 
   # Identify the selected servers. When we got the call from the
   # single server page, we need to look at :id, otherwise from

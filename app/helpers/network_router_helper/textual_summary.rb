@@ -7,11 +7,14 @@ module NetworkRouterHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(name type status)
+    TextualGroup.new(_("Properties"), %i(name type status))
   end
 
   def textual_group_relationships
-    %i(parent_ems_cloud ems_network cloud_tenant instances cloud_subnets external_gateway)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(parent_ems_cloud ems_network cloud_tenant instances cloud_subnets external_gateway)
+    )
   end
 
   #
@@ -34,7 +37,7 @@ module NetworkRouterHelper::TextualSummary
     num   = @record.number_of(:vms)
     h     = {:label => label, :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'instances')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'instances')
       h[:title] = _("Show all %{label}") % {:label => label}
     end
     h

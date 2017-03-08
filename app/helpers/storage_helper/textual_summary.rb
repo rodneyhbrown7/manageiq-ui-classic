@@ -4,28 +4,27 @@ module StorageHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(store_type free_space used_space total_space)
+    TextualGroup.new(_("Properties"), %i(store_type free_space used_space total_space))
   end
 
   def textual_group_registered_vms
-    %i(uncommitted_space used_uncommitted_space)
+    TextualGroup.new(_("Information for Registered VMs"), %i(uncommitted_space used_uncommitted_space))
   end
 
   def textual_group_relationships
-    %i(hosts managed_vms managed_miq_templates registered_vms unregistered_vms unmanaged_vms)
-  end
-
-  def textual_group_storage_relationships
-    %i(storage_systems storage_volumes logical_disk file_share)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(hosts managed_vms managed_miq_templates registered_vms unregistered_vms unmanaged_vms)
+    )
   end
 
   def textual_group_smart_management
-    %i(tags)
+    TextualTags.new(_("Smart Management"), %i(tags))
   end
 
   def textual_group_content
     return nil if @record["total_space"].nil?
-    %i(files disk_files snapshot_files vm_ram_files vm_misc_files debris_files)
+    TextualGroup.new(_("Content"), %i(files disk_files snapshot_files vm_ram_files vm_misc_files debris_files))
   end
 
   #
@@ -76,7 +75,7 @@ module StorageHelper::TextualSummary
     num   = @record.number_of(:hosts)
     h     = {:label => label, :icon => "pficon pficon-screen", :value => num}
     if num > 0 && role_allows?(:feature => "host_show_list")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'hosts')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'hosts')
       h[:title] = _("Show all %{label}") % {:label => label}
     end
     h
@@ -87,7 +86,7 @@ module StorageHelper::TextualSummary
     num   = @record.number_of(:all_vms)
     h     = {:label => label, :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'all_vms')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'all_vms')
       h[:title] = _("Show all %{label}") % {:label => label}
     end
     h
@@ -98,7 +97,7 @@ module StorageHelper::TextualSummary
     num   = @record.number_of(:all_miq_templates)
     h     = {:label => label, :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "miq_template_show_list")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'all_miq_templates')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'all_miq_templates')
       h[:title] = _("Show all %{label}") % {:label => label}
     end
     h
@@ -116,56 +115,12 @@ module StorageHelper::TextualSummary
     {:label => _("Unmanaged VMs"), :icon => "pficon pficon-virtual-machine", :value => @record.total_unmanaged_vms}
   end
 
-  def textual_storage_systems
-    num   = @record.storage_systems_size
-    label = ui_lookup(:tables => "ontap_storage_system")
-    h     = {:label => label, :icon => "pficon pficon-volume", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_storage_system_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_storage_systems")
-    end
-    h
-  end
-
-  def textual_storage_volumes
-    num   = @record.storage_volumes_size
-    label = ui_lookup(:tables => "ontap_storage_volume")
-    h     = {:label => label, :icon => "pficon pficon-volume", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_storage_volume_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_storage_volumes")
-    end
-    h
-  end
-
-  def textual_logical_disk
-    ld = @record.logical_disk
-    label = ui_lookup(:table => "ontap_logical_disk")
-    h = {:label => label, :icon => "fa fa-hdd-o", :value => (ld.blank? ? _("None") : ld.evm_display_name)}
-    if !ld.blank? && role_allows?(:feature => "ontap_logical_disk_show")
-      h[:title] = _("Show this Datastore's %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => 'ontap_logical_disk', :action => 'show', :id => ld)
-    end
-    h
-  end
-
-  def textual_file_share
-    fs = @record.file_share
-    label = ui_lookup(:table => "ontap_file_share")
-    h = {:label => label, :icon => "product product-file_share", :value => (fs.blank? ? _("None") : fs.evm_display_name)}
-    if !fs.blank? && role_allows?(:feature => "ontap_file_share_show")
-      h[:title] = _("Show this Datastore's %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => 'ontap_file_share', :action => 'show', :id => fs)
-    end
-    h
-  end
-
   def textual_files
     num   = @record.number_of(:files)
     h     = {:label => _("All Files"), :icon => "fa fa-file-o", :value => num}
     if num > 0
       h[:title] = _("Show all files installed on this %{table}") % {:table => ui_lookup(:table => "storages")}
-      h[:link]  = url_for(:action => 'files', :id => @record)
+      h[:link]  = url_for_only_path(:action => 'files', :id => @record)
     end
     h
   end
@@ -184,7 +139,7 @@ module StorageHelper::TextualSummary
     if num > 0
       h[:title] = _("Show VM Provisioned Disk Files installed on this %{table}") %
                   {:table => ui_lookup(:table => "storages")}
-      h[:link]  = url_for(:action => 'disk_files', :id => @record)
+      h[:link]  = url_for_only_path(:action => 'disk_files', :id => @record)
     end
     h
   end
@@ -202,7 +157,7 @@ module StorageHelper::TextualSummary
     if num > 0
       h[:title] = _("Show VM Snapshot Files installed on this %{storage}") %
                   {:storage => ui_lookup(:table => "storages")}
-      h[:link]  = url_for(:action => 'snapshot_files', :id => @record)
+      h[:link]  = url_for_only_path(:action => 'snapshot_files', :id => @record)
     end
     h
   end
@@ -219,7 +174,7 @@ module StorageHelper::TextualSummary
     h     = {:label => _("VM Memory Files"), :icon => "fa fa-file-o", :value => value}
     if num > 0
       h[:title] = _("Show VM Memory Files installed on this %{storage}") % {:storage => ui_lookup(:table => "storages")}
-      h[:link]  = url_for(:action => 'vm_ram_files', :id => @record)
+      h[:link]  = url_for_only_path(:action => 'vm_ram_files', :id => @record)
     end
     h
   end
@@ -236,7 +191,7 @@ module StorageHelper::TextualSummary
     h     = {:label => _("Other VM Files"), :icon => "fa fa-file-o", :value => value}
     if num > 0
       h[:title] = _("Show Other VM Files installed on this %{storage}") % {:storage => ui_lookup(:table => "storages")}
-      h[:link]  = url_for(:action => 'vm_misc_files', :id => @record)
+      h[:link]  = url_for_only_path(:action => 'vm_misc_files', :id => @record)
     end
     h
   end
@@ -253,7 +208,7 @@ module StorageHelper::TextualSummary
     h     = {:label => _("Non-VM Files"), :icon => "fa fa-file-o", :value => value}
     if num > 0
       h[:title] = _("Show Non-VM Files installed on this %{storage}") % {:storage => ui_lookup(:table => "storages")}
-      h[:link]  = url_for(:action => 'debris_files', :id => @record)
+      h[:link]  = url_for_only_path(:action => 'debris_files', :id => @record)
     end
     h
   end

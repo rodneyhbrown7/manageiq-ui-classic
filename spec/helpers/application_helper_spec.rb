@@ -540,108 +540,6 @@ describe ApplicationHelper do
     end
   end
 
-  context "#title_from_layout" do
-    let(:title) { I18n.t('product.name') }
-    subject { helper.title_from_layout(@layout) }
-
-    it "when layout is blank" do
-      @layout = ""
-      expect(subject).to eq(title)
-    end
-
-    it "when layout = 'miq_server'" do
-      @layout = "miq_server"
-      expect(subject).to eq(title + ": Servers")
-    end
-
-    it "when layout = 'usage'" do
-      @layout = "usage"
-      expect(subject).to eq(title + ": VM Usage")
-    end
-
-    it "when layout = 'scan_profile'" do
-      @layout = "scan_profile"
-      expect(subject).to eq(title + ": Analysis Profiles")
-    end
-
-    it "when layout = 'miq_policy_rsop'" do
-      @layout = "miq_policy_rsop"
-      expect(subject).to eq(title + ": Policy Simulation")
-    end
-
-    it "when layout = 'all_ui_tasks'" do
-      @layout = "all_ui_tasks"
-      expect(subject).to eq(title + ": All UI Tasks")
-    end
-
-    it "when layout = 'rss'" do
-      @layout = "rss"
-      expect(subject).to eq(title + ": RSS")
-    end
-
-    it "when layout = 'management_system'" do
-      @layout = "management_system"
-      expect(subject).to eq(title + ": Management Systems")
-    end
-
-    it "when layout = 'storage_manager'" do
-      @layout = "storage_manager"
-      expect(subject).to eq(title + ": Storage - Storage Managers")
-    end
-
-    it "when layout = 'ops'" do
-      @layout = "ops"
-      expect(subject).to eq(title + ": Configuration")
-    end
-
-    it "when layout = 'pxe'" do
-      @layout = "pxe"
-      expect(subject).to eq(title + ": PXE")
-    end
-
-    it "when layout = 'vm_or_template'" do
-      @layout = "vm_or_template"
-      expect(subject).to eq(title + ": Workloads")
-    end
-
-    it "when layout likes 'miq_ae_*'" do
-      @layout = "miq_ae_some_thing"
-      expect(subject).to eq(title + ": Automation")
-    end
-
-    it "when layout likes 'miq_policy*'" do
-      @layout = "miq_policy_some_thing"
-      expect(subject).to eq(title + ": Control")
-    end
-
-    it "when layout likes 'miq_capacity*'" do
-      @layout = "miq_capacity_some_thing"
-      expect(subject).to eq(title + ": Optimize")
-    end
-
-    it "when layout likes 'miq_request*'" do
-      @layout = "miq_request_some_thing"
-      expect(subject).to eq(title + ": Requests")
-    end
-
-    it "when layout likes 'cim_*' or 'snia_*'" do
-      @layout = "cim_base_storage_extent"
-      expect(subject).to eq(title + ": Storage - #{ui_lookup(:tables => @layout)}")
-    end
-
-    it "otherwise" do
-      @layout = "xxx"
-      expect(subject).to eq(title + ": #{ui_lookup(:tables => @layout)}")
-    end
-  end
-
-  context "#controller_model_name" do
-    it "returns the model's title" do
-      expect(helper.controller_model_name("OntapFileShare")).to eq("Storage - File Share")
-      expect(helper.controller_model_name("CimStorageExtent")).to eq("Storage - Extent")
-    end
-  end
-
   context "#is_browser_ie7?" do
     it "when browser's explorer version 7.x" do
       allow_any_instance_of(ActionController::TestSession)
@@ -863,11 +761,6 @@ describe ApplicationHelper do
   end
 
   context "#perf_parent?" do
-    it "when model != 'VmOrTemplate'" do
-      @perf_options = {:model => 'OntapVolumeDerivedMetric'}
-      expect(helper.perf_parent?).to be_falsey
-    end
-
     it "when model == 'VmOrTemplate' and typ == 'realtime'" do
       @perf_options = {:model => 'VmOrTemplate', :typ => 'realtime'}
       expect(helper.perf_parent?).to be_falsey
@@ -894,28 +787,6 @@ describe ApplicationHelper do
     end
   end
 
-  context "#perf_compare_vm?" do
-    it "when model != 'OntapLogicalDisk'" do
-      @perf_options = {:model => 'OntapVolumeDerivedMetric'}
-      expect(helper.perf_compare_vm?).to be_falsey
-    end
-
-    it "when model == 'OntapLogicalDisk' and typ == 'realtime'" do
-      @perf_options = {:model => 'OntapLogicalDisk', :typ => 'realtime'}
-      expect(helper.perf_compare_vm?).to be_falsey
-    end
-
-    it "when model == 'OntapLogicalDisk', typ != 'realtime' and compare_vm == nil" do
-      @perf_options = {:model => 'OntapLogicalDisk', :typ => 'Daily', :compare_vm => nil}
-      expect(helper.perf_compare_vm?).to be_falsey
-    end
-
-    it "when model == 'OntapLogicalDisk', typ != 'realtime' and compare_vm != nil" do
-      @perf_options = {:model => 'OntapLogicalDisk', :typ => 'Daily', :compare_vm => 'something'}
-      expect(helper.perf_compare_vm?).to be_truthy
-    end
-  end
-
   context "#model_report_type" do
     it "when model == nil" do
       expect(helper.model_report_type(nil)).to be_falsey
@@ -923,7 +794,6 @@ describe ApplicationHelper do
 
     it "when model likes '...Performance' or '...MetricsRollup'" do
       expect(helper.model_report_type("VmPerformance")).to eq(:performance)
-      expect(helper.model_report_type("OntapVolumeMetricsRollup")).to eq(:performance)
     end
 
     it "when model == VimPerformanceTrend" do
@@ -1202,56 +1072,6 @@ describe ApplicationHelper do
     end
   end
 
-  context "#title_for_clusters" do
-    before(:each) do
-      @ems1 = FactoryGirl.create(:ems_vmware)
-      @ems2 = FactoryGirl.create(:ems_openstack_infra)
-    end
-
-    it "returns 'Clusters / Deployment Roles' when there are both openstack & non-openstack clusters" do
-      FactoryGirl.create(:ems_cluster, :ems_id => @ems1.id)
-      FactoryGirl.create(:ems_cluster, :ems_id => @ems2.id)
-
-      result = helper.title_for_clusters
-      expect(result).to eq("Clusters / Deployment Roles")
-    end
-
-    it "returns 'Clusters' when there are only non-openstack clusters" do
-      FactoryGirl.create(:ems_cluster, :ems_id => @ems1.id)
-
-      result = helper.title_for_clusters
-      expect(result).to eq("Clusters")
-    end
-
-    it "returns 'Deployment Roles' when there are only openstack clusters" do
-      FactoryGirl.create(:ems_cluster, :ems_id => @ems2.id)
-
-      result = helper.title_for_clusters
-      expect(result).to eq("Deployment Roles")
-    end
-  end
-
-  context "#title_for_cluster" do
-    before(:each) do
-      @ems1 = FactoryGirl.create(:ems_vmware)
-      @ems2 = FactoryGirl.create(:ems_openstack_infra)
-    end
-
-    it "returns 'Cluster' for non-openstack cluster" do
-      FactoryGirl.create(:ems_cluster, :ems_id => @ems1.id)
-
-      result = helper.title_for_cluster
-      expect(result).to eq("Cluster")
-    end
-
-    it "returns 'Deployment Role' for openstack cluster" do
-      FactoryGirl.create(:ems_cluster, :ems_id => @ems2.id)
-
-      result = helper.title_for_cluster
-      expect(result).to eq("Deployment Role")
-    end
-  end
-
   context "#title_for_cluster_record" do
     before(:each) do
       @ems1 = FactoryGirl.create(:ems_vmware)
@@ -1270,41 +1090,6 @@ describe ApplicationHelper do
 
       result = helper.title_for_cluster_record(cluster)
       expect(result).to eq("Deployment Role")
-    end
-  end
-
-  context "#title_for_hosts" do
-    it "returns 'Hosts / Nodes' when there are both openstack & non-openstack hosts" do
-      FactoryGirl.create(:host_vmware_esx, :ext_management_system => FactoryGirl.create(:ems_vmware))
-      FactoryGirl.create(:host_openstack_infra, :ext_management_system => FactoryGirl.create(:ems_openstack_infra))
-
-      expect(helper.title_for_hosts).to eq("Hosts / Nodes")
-    end
-
-    it "returns 'Hosts' when there are only non-openstack hosts" do
-      FactoryGirl.create(:host_vmware_esx, :ext_management_system => FactoryGirl.create(:ems_vmware))
-
-      expect(helper.title_for_hosts).to eq("Hosts")
-    end
-
-    it "returns 'Nodes' when there are only openstack hosts" do
-      FactoryGirl.create(:host_openstack_infra, :ext_management_system => FactoryGirl.create(:ems_openstack_infra))
-
-      expect(helper.title_for_hosts).to eq("Nodes")
-    end
-  end
-
-  context "#title_for_host" do
-    it "returns 'Host' for non-openstack host" do
-      FactoryGirl.create(:host_vmware, :ext_management_system => FactoryGirl.create(:ems_vmware))
-
-      expect(helper.title_for_host).to eq("Host")
-    end
-
-    it "returns 'Node' for openstack host" do
-      FactoryGirl.create(:host_openstack_infra, :ext_management_system => FactoryGirl.create(:ems_openstack_infra))
-
-      expect(helper.title_for_host).to eq("Node")
     end
   end
 
@@ -1347,6 +1132,19 @@ describe ApplicationHelper do
                                          }
                                        }
                                       )
+      result = helper.tree_with_advanced_search?
+      expect(result).to be_truthy
+    end
+
+    it 'should return true for the configuration providers tree' do
+      controller.instance_variable_set(:@sb,
+                                       :active_tree => :configuration_manager_providers_tree,
+                                       :trees       => {
+                                         :configuration_manager_providers_tree => {
+                                           :tree => :configuration_manager_providers_tree,
+                                           :type => :configuration_manager_providers
+                                         }
+                                       })
       result = helper.tree_with_advanced_search?
       expect(result).to be_truthy
     end
@@ -1439,8 +1237,7 @@ describe ApplicationHelper do
     it "returns correct image for job record based upon it's status" do
       job_attrs = {"state" => "running", "status" => "ok"}
       image = helper.listicon_image_tag("Job", job_attrs)
-      expect(image).to eq("<img valign=\"middle\" width=\"16\" height=\"16\" title=\"Status = Running\"" \
-                          " src=\"#{ActionController::Base.helpers.image_path('100/job-running.png')}\" />")
+      expect(image).to eq("<i class=\"pficon pficon-running\" title=\"Status = Running\"></i>")
     end
   end
 

@@ -1,13 +1,13 @@
 - auth_mode = ::Settings.authentication.mode
 
 %span#badge
-  %img{:src => "#{current_tenant.logo? ? '/upload/custom_logo.png' : image_path("login-screen-logo.png")}"}
+  %img{:src => ::Settings.server.custom_logo ? '/upload/custom_logo.png' : image_path("layout/login-screen-logo.png")}
 
 .container
   .row
     .col-md-12
       #brand
-        %img{:src => image_path("brand.svg"), :alt => "ManageIQ"}
+        %img{:src => image_path("layout/brand.svg"), :alt => "ManageIQ"}
 
     .col-md-6.col-lg-5.login
       .form-horizontal#login_div
@@ -88,9 +88,9 @@
                           :title        => _("Update Password"))
 
           .col-xs-4.col-md-3.submit
-            - login_url = url_for(:action => "authenticate",
+            - login_url = url_for_only_path(:action => "authenticate",
                                   :button => "login")
-            - sso_url = url_for(:action => "kerberos_authenticate",
+            - sso_url = url_for_only_path(:action => "kerberos_authenticate",
                                 :button => "sso_login")
 
             = link_to(_("Login"), '',

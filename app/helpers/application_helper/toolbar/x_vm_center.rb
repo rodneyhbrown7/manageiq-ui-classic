@@ -156,7 +156,8 @@ class ApplicationHelper::Toolbar::XVmCenter < ApplicationHelper::Toolbar::Basic
           'product product-monitoring fa-lg',
           N_('Show Capacity & Utilization data for this VM'),
           N_('Utilization'),
-          :url_parms => "?display=performance"),
+          :url_parms => "?display=performance",
+          :klass     => ApplicationHelper::Button::VmPerf),
         button(
           :vm_timeline,
           'product product-timeline fa-lg',
@@ -164,6 +165,12 @@ class ApplicationHelper::Toolbar::XVmCenter < ApplicationHelper::Toolbar::Basic
           N_('Timelines'),
           :url_parms => "?display=timeline",
           :klass     => ApplicationHelper::Button::VmTimeline),
+        button(
+          :vm_chargeback,
+          'fa fa-file-text-o fa-lg',
+          N_('Show Chargeback preview'),
+          N_('Chargeback Preview')
+        ),
       ]
     ),
   ])

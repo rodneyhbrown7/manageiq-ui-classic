@@ -57,7 +57,6 @@ module ApplicationController::CiProcessing
   alias_method :instance_ownership, :set_ownership
   alias_method :vm_ownership, :set_ownership
   alias_method :miq_template_ownership, :set_ownership
-  alias_method :service_ownership, :set_ownership
 
   def get_class_from_controller_param(controller)
     case controller
@@ -231,7 +230,6 @@ module ApplicationController::CiProcessing
   end
   alias_method :instance_retire, :retirevms
   alias_method :vm_retire, :retirevms
-  alias_method :service_retire, :retirevms
   alias_method :orchestration_stack_retire, :retirevms
 
   def retirement_info
@@ -391,7 +389,7 @@ module ApplicationController::CiProcessing
       if @record.supports_resize?
         begin
           old_flavor = @record.flavor
-          @record.resize(flavor)
+          @record.resize_queue(session[:userid], flavor)
           add_flash(_("Reconfiguring %{instance} \"%{name}\" from %{old_flavor} to %{new_flavor}") % {
             :instance   => ui_lookup(:table => 'vm_cloud'),
             :name       => @record.name,
@@ -459,7 +457,7 @@ module ApplicationController::CiProcessing
 
   def live_migrate
     assert_privileges("instance_live_migrate")
-    @record ||= VmOrTemplate.find_by_id(params[:rec_id])
+    @record ||= VmOrTemplate.find_by(:id => params[:rec_id])
     drop_breadcrumb(
       :name => _("Live Migrate Instance '%{name}'") % {:name => @record.name},
       :url  => "/vm_cloud/live_migrate"
@@ -497,45 +495,37 @@ module ApplicationController::CiProcessing
 
   def live_migrate_vm
     assert_privileges("instance_live_migrate")
-    @record = VmOrTemplate.find_by_id(params[:id])
+    @record = VmOrTemplate.find_by(:id => params[:id])
     case params[:button]
     when "cancel"
       add_flash(_("Live Migration of %{model} \"%{name}\" was cancelled by the user") % {
-        :model => ui_lookup(:table => "vm_cloud"), :name => @record.name})
+        :model => ui_lookup(:table => "vm_cloud"), :name => @record.name
+      })
       @record = @sb[:action] = nil
     when "submit"
       if @record.supports_live_migrate?
-        if params['auto_select_host'] == 'on'
-          hostname = nil
-        else
-          hostname = params[:destination_host]
+        options = {
+          :hostname         => params['auto_select_host'] == 'on' ? nil : params[:destination_host],
+          :block_migration  => params['block_migration']   == 'on',
+          :disk_over_commit => params['disk_over_commit']  == 'on'
+        }
+        task_id = @record.class.live_migrate_queue(session[:userid], @record, options)
+        unless task_id.kind_of?(Integer)
+          add_flash(_("Instance live migration task failed."), :error)
         end
-        block_migration = params[:block_migration]
-        disk_over_commit = params[:disk_over_commit]
-        begin
-          @record.live_migrate(
-            :hostname         => hostname,
-            :block_migration  => block_migration == 'on',
-            :disk_over_commit => disk_over_commit == 'on'
-          )
-          add_flash(_("Live Migrating %{instance} \"%{name}\"") % {
-            :instance => ui_lookup(:table => 'vm_cloud'),
-            :name     => @record.name})
-        rescue => ex
-          add_flash(_("Unable to live migrate %{instance} \"%{name}\": %{details}") % {
-            :instance => ui_lookup(:table => 'vm_cloud'),
-            :name     => @record.name,
-            :details  => get_error_message_from_fog(ex)}, :error)
-        end
+
+        return javascript_flash(:spinner_off => true) if @flash_array
+        return initiate_wait_for_task(:task_id => task_id, :action => "live_migrate_finished")
       else
         add_flash(_("Unable to live migrate %{instance} \"%{name}\": %{details}") % {
           :instance => ui_lookup(:table => 'vm_cloud'),
           :name     => @record.name,
-          :details  => @record.unsupported_reason(:live_migrate)}, :error)
+          :details  => @record.unsupported_reason(:live_migrate)
+        }, :error)
+        params[:id] = @record.id.to_s # reset id in params for show
+        @record = nil
+        @sb[:action] = nil
       end
-      params[:id] = @record.id.to_s # reset id in params for show
-      @record = nil
-      @sb[:action] = nil
     end
     if @sb[:explorer]
       replace_right_cell
@@ -543,7 +533,32 @@ module ApplicationController::CiProcessing
       session[:flash_msgs] = @flash_array.dup
       javascript_redirect previous_breadcrumb_url
     end
-    return
+  end
+
+  def live_migrate_finished
+    task_id = session[:async][:params][:task_id]
+    vm_id = session[:async][:params][:id]
+    vm = VmOrTemplate.find_by(:id => vm_id)
+    task = MiqTask.find(task_id)
+    if MiqTask.status_ok?(task.status)
+      add_flash(_("Live migration of Instance \"%{name}\" complete.") % {:name => vm.name})
+    else
+      add_flash(_("Unable to live migrate Instance \"%{name}\": %{details}") % {
+        :name    => vm.name,
+        :details => get_error_message_from_fog(task.message)
+      }, :error)
+    end
+    @breadcrumbs.pop if @breadcrumbs
+    session[:edit] = nil
+    params[:id] = vm.id.to_s # reset id in params for show
+    @record = nil
+    @sb[:action] = nil
+    if @sb[:explorer]
+      replace_right_cell
+    else
+      session[:flash_msgs] = @flash_array.dup
+      javascript_redirect previous_breadcrumb_url
+    end
   end
 
   def evacuate
@@ -599,7 +614,8 @@ module ApplicationController::CiProcessing
         on_shared_storage = params[:on_shared_storage] == 'on'
         admin_password = on_shared_storage ? nil : params[:admin_password]
         begin
-          @record.evacuate(
+          @record.evacuate_queue(
+            session[:userid],
             :hostname          => hostname,
             :on_shared_storage => on_shared_storage,
             :admin_password    => admin_password
@@ -715,7 +731,7 @@ module ApplicationController::CiProcessing
       if @record.supports_associate_floating_ip?
         floating_ip = params[:floating_ip]
         begin
-          @record.associate_floating_ip(floating_ip)
+          @record.associate_floating_ip_queue(session[:userid], floating_ip)
           add_flash(_("Associating Floating IP %{address} with Instance \"%{name}\"") % {
             :address => floating_ip,
             :name    => @record.name})
@@ -809,7 +825,7 @@ module ApplicationController::CiProcessing
       if @record.supports_disassociate_floating_ip?
         floating_ip = params[:floating_ip]
         begin
-          @record.disassociate_floating_ip(floating_ip)
+          @record.disassociate_floating_ip_queue(session[:userid], floating_ip)
           add_flash(_("Disassociating Floating IP %{address} from Instance \"%{name}\"") % {
             :address => floating_ip,
             :name    => @record.name})
@@ -1096,66 +1112,6 @@ module ApplicationController::CiProcessing
       render :template => "shared/views/ems_common/show"
     else
       render :action => "show"
-    end
-  end
-
-  def snia_local_file_systems
-    @db = params[:db] ? params[:db] : request.parameters[:controller]
-    session[:db] = @db unless @db.nil?
-    @db = session[:db] unless session[:db].nil?
-
-    @record = identify_record(params[:id])
-    return if record_no_longer_exists?(@record)
-
-    @view = session[:view]                  # Restore the view from the session to get column names for the display
-    @display = "snia_local_file_systems"
-    if !params[:show].nil?
-      @item = SniaLocalFileSystem.find_by_id(from_cid(params[:show]))
-      drop_breadcrumb(:name => @record.evm_display_name + " (" + ui_lookup(:tables => "snia_local_file_system") + ")", :url => "/#{@db}/snia_local_file_systems/#{@record.id}?page=#{@current_page}")
-      drop_breadcrumb(:name => @item.evm_display_name, :url => "/#{@db}/show/#{@record.id}?show=#{@item.id}")
-      show_item
-    else
-      drop_breadcrumb(:name => @record.evm_display_name + " (" + ui_lookup(:tables => "snia_local_file_system") + ")", :url => "/#{@db}/snia_local_file_systems/#{@record.id}")
-      # generate the grid/tile/list url to come back here when gtl buttons are pressed
-      @gtl_url = "/#{@db}/snia_local_file_systems/" + @record.id.to_s + "?"
-      @showtype = "details"
-
-      table_name = "snia_local_file_systems"
-      model_name = table_name.classify.constantize
-      drop_breadcrumb(:name => @record.evm_display_name + " (All #{ui_lookup(:tables => @display.singularize)})", :url => "/#{self.class.table_name}/show/#{@record.id}?display=#{@display}")
-      @view, @pages = get_view(model_name, :parent => @record, :parent_method => :local_file_systems)  # Get the records (into a view) and the paginator
-      render :action => 'show'
-    end
-  end
-
-  def cim_base_storage_extents
-    @db = params[:db] ? params[:db] : request.parameters[:controller]
-    session[:db] = @db unless @db.nil?
-    @db = session[:db] unless session[:db].nil?
-
-    @record = identify_record(params[:id])
-    return if record_no_longer_exists?(@record)
-
-    @view = session[:view]                  # Restore the view from the session to get column names for the display
-    @display = "cim_base_storage_extents"
-    if !params[:show].nil?
-      @item = CimBaseStorageExtent.find_by_id(from_cid(params[:show]))
-      drop_breadcrumb(:name => @record.evm_display_name + " (" + ui_lookup(:tables => "cim_base_storage_extent") + ")", :url => "/#{@db}/cim_base_storage_extents/#{@record.id}?page=#{@current_page}")
-      drop_breadcrumb(:name => @item.evm_display_name, :url => "/#{@db}/show/#{@record.id}?show=#{@item.id}")
-      show_item
-    else
-      drop_breadcrumb(:name => @record.evm_display_name + " (" + ui_lookup(:tables => "cim_base_storage_extent") + ")", :url => "/#{@db}/cim_base_storage_extents/#{@record.id}")
-      # generate the grid/tile/list url to come back here when gtl buttons are pressed
-      @gtl_url = "/#{@db}/cim_base_storage_extents/" + @record.id.to_s + "?"
-      @showtype = "details"
-
-      table_name = "cim_base_storage_extents"
-      model_name = table_name.classify.constantize
-      drop_breadcrumb(:name => _("%{name} (All %{tables})") % {:name   => @record.evm_display_name,
-                                                               :tables => ui_lookup(:tables => @display.singularize)},
-                      :url  => "/#{self.class.table_name}/show/#{@record.id}?display=#{@display}")
-      @view, @pages = get_view(model_name, :parent => @record, :parent_method => :base_storage_extents)  # Get the records (into a view) and the paginator
-      render :action => 'show'
     end
   end
 
@@ -1611,7 +1567,7 @@ module ApplicationController::CiProcessing
     @view, @pages = get_view(model || self.class.model, options)  # Get the records (into a view) and the paginator
     if session[:bc] && session[:menu_click]               # See if we came from a perf chart menu click
       drop_breadcrumb(:name => session[:bc],
-                      :url  => url_for(:controller    => self.class.table_name,
+                      :url  => url_for_only_path(:controller    => self.class.table_name,
                                        :action        => "show_list",
                                        :bc            => session[:bc],
                                        :sb_controller => params[:sb_controller],
@@ -1884,6 +1840,49 @@ module ApplicationController::CiProcessing
     vms.count
   end
 
+  def process_cloud_object_storage_buttons(pressed)
+    assert_privileges(pressed)
+
+    klass = get_rec_cls
+    task = pressed.sub("#{klass.name.underscore.to_sym}_", "")
+
+    return tag(klass) if task == "tag"
+
+    cloud_object_store_button_operation(klass, task)
+  end
+
+  def cloud_object_store_button_operation(klass, task)
+    method = "#{task}_#{klass.name.underscore.to_sym}"
+    display_name = _(task.capitalize)
+
+    items = []
+
+    # Either a list or coming from a different controller
+    if @lastaction == "show_list" || !%w(cloud_object_store_container).include?(request.parameters["controller"])
+      items = find_checked_items
+      if items.empty?
+        add_flash(_("No %{model} were selected for %{task}") %
+                    {:model => ui_lookup(:models => klass.name), :task => display_name}, :error)
+      elsif klass.find(items).any? { |item| !item.supports?(task) }
+        add_flash(_("%{task} does not apply to at least one of the selected items") %
+                    {:task => display_name}, :error)
+      else
+        process_objects(items, method, display_name)
+      end
+    elsif params[:id].nil? || klass.find_by(:id => params[:id]).nil?
+      add_flash(_("%{record} no longer exists") %
+                  {:record => ui_lookup(:table => request.parameters["controller"])}, :error)
+      show_list unless @explorer
+      @refresh_partial = "layouts/gtl"
+    elsif !klass.find_by(:id => params[:id]).supports?(task)
+      add_flash(_("%{task} does not apply to this item") %
+                  {:task => display_name}, :error)
+    else
+      items.push(params[:id])
+      process_objects(items, method, display_name) unless items.empty?
+    end
+  end
+
   def get_rec_cls
     case request.parameters["controller"]
     when "miq_template"
@@ -1892,6 +1891,10 @@ module ApplicationController::CiProcessing
       return OrchestrationStack
     when "service"
       return Service
+    when "cloud_object_store_container"
+      CloudObjectStoreContainer
+    when "ems_storage"
+      CloudObjectStoreContainer
     else
       return VmOrTemplate
     end
@@ -1908,6 +1911,9 @@ module ApplicationController::CiProcessing
     when "VmOrTemplate"
       objs, _objs_out_reg = filter_ids_in_region(objs, "VM") unless VmOrTemplate::REMOTE_REGION_TASKS.include?(task)
       klass = Vm
+    when "CloudObjectStoreContainer"
+      objs, _objs_out_reg = filter_ids_in_region(objs, "CloudObjectStoreContainer")
+      klass = CloudObjectStoreContainer
     end
 
     assert_rbac(current_user, get_rec_cls, objs)
@@ -1929,7 +1935,7 @@ module ApplicationController::CiProcessing
        :models  => ui_lookup(:models => klass.to_s)})
   end
 
-  def foreman_button_operation(method, display_name)
+  def manager_button_operation(method, display_name)
     items = []
     if params[:id]
       if params[:id].nil? || !ExtManagementSystem.where(:id => params[:id]).exists?
@@ -1944,25 +1950,30 @@ module ApplicationController::CiProcessing
     if items.empty?
       add_flash(_("No providers were selected for %{task}") % {:task  => display_name}, :error)
     else
-      process_cfgmgr(items, method) unless items.empty? && !flash_errors?
+      process_managers(items, method) unless items.empty? && !flash_errors?
     end
   end
 
-  def process_cfgmgr(providers, task)
-    providers, _services_out_region = filter_ids_in_region(providers, "ManageIQ::Providers::ConfigurationManager")
-    return if providers.empty?
+  def process_managers(managers, task)
+    controller_class = request.parameters[:controller]
+    provider_class = case controller_class
+                     when 'provider_foreman' then ManageIQ::Providers::ConfigurationManager
+                     when 'automation_manager' then ManageIQ::Providers::AutomationManager
+                     end
 
-    options = {:ids => providers, :task => task, :userid => session[:userid]}
-    kls = ManageIQ::Providers::ConfigurationManager.find_by_id(providers.first).class
+    manager_ids, _services_out_region = filter_ids_in_region(managers, provider_class.to_s)
+    return if manager_ids.empty?
+
+    options = {:ids => manager_ids, :task => task, :userid => session[:userid]}
+    kls = provider_class.find_by(:id => manager_ids.first).class
     kls.process_tasks(options)
   rescue => err
     add_flash(_("Error during '%{task}': %{message}") % {:task => task, :message => err.message}, :error)
   else
-    add_flash(n_("%{task} initiated for %{count} provider (%{controller})",
-                 "%{task} initiated for %{count} providers (%{controller})", providers.length) %
-                {:task       => task_name(task),
-                 :controller => ProviderForemanController.model_to_name(kls.to_s),
-                 :count      => providers.length})
+    add_flash(n_("%{task} initiated for %{count} provider",
+                 "%{task} initiated for %{count} providers)", manager_ids.length) %
+                {:task  => task_name(task),
+                 :count => manager_ids.length})
   end
 
   # Delete all selected or single displayed VM(s)
@@ -2346,7 +2357,7 @@ module ApplicationController::CiProcessing
       each_host(hosts, task_name) do |host|
         if host.maintenance
           if host.respond_to?(:unset_node_maintenance)
-            host.send(:unset_node_maintenance)
+            host.send(:unset_node_maintenance_queue, session[:userid])
             add_flash(_("\"%{record}\": %{task} successfully initiated") %
                       {:record => host.name, :task => (display_name || task)})
           else
@@ -2354,7 +2365,7 @@ module ApplicationController::CiProcessing
                       {:hostname => host.name, :task => (task_name || task)}, :error)
           end
         elsif host.respond_to?(:set_node_maintenance)
-          host.send(:set_node_maintenance)
+          host.send(:set_node_maintenance_queue, session[:userid])
           add_flash(_("\"%{record}\": %{task} successfully initiated") %
                     {:record => host.name, :task => (display_name || task)})
         else
@@ -2384,11 +2395,11 @@ module ApplicationController::CiProcessing
       end
     when "manageable"
       each_host(hosts, task_name) do |host|
-        if ["available", "adoptfail", "inspectfail", "cleanfail"].include?(host.hardware.provision_state)
+        if %w(enroll available adoptfail inspectfail cleanfail).include?(host.hardware.provision_state)
           host.manageable_queue(session[:userid])
           add_flash(_("\"%{record}\": %{task} successfully initiated") % {:record => host.name, :task => (display_name || task)})
         else
-          add_flash(_("\"%{task}\": not available for %{hostname}. %{hostname}'s provision state must be in \"available\", \"adoptfail\", \"cleanfail\", or \"inspectfail\"") % {:hostname => host.name, :task => (display_name || task)}, :error)
+          add_flash(_("\"%{task}\": not available for %{hostname}. %{hostname}'s provision state must be in \"available\", \"adoptfail\", \"cleanfail\", \"enroll\", or \"inspectfail\"") % {:hostname => host.name, :task => (display_name || task)}, :error)
         end
       end
     when "introspect"
@@ -2443,21 +2454,21 @@ module ApplicationController::CiProcessing
 
   # Common Stacks button handler routines
   def process_configuration_jobs(stacks, task, _ = nil)
-    stacks, = filter_ids_in_region(stacks, "ManageIQ::Providers::AnsibleTower::ConfigurationManager::Job")
+    stacks, = filter_ids_in_region(stacks, "ManageIQ::Providers::AnsibleTower::AutomationManager::Job")
     return if stacks.empty?
 
     if task == "destroy"
-      ManageIQ::Providers::AnsibleTower::ConfigurationManager::Job.where(:id => stacks).order("lower(name)").each do |stack|
+      ManageIQ::Providers::AnsibleTower::AutomationManager::Job.where(:id => stacks).order("lower(name)").each do |stack|
         id = stack.id
         stack_name = stack.name
         audit = {:event        => "stack_record_delete_initiated",
                  :message      => "[#{stack_name}] Record delete initiated",
                  :target_id    => id,
-                 :target_class => "ManageIQ::Providers::AnsibleTower::ConfigurationManager::Job",
+                 :target_class => "ManageIQ::Providers::AnsibleTower::AutomationManager::Job",
                  :userid       => session[:userid]}
         AuditEvent.success(audit)
       end
-      ManageIQ::Providers::AnsibleTower::ConfigurationManager::Job.destroy_queue(stacks)
+      ManageIQ::Providers::AnsibleTower::AutomationManager::Job.destroy_queue(stacks)
     end
   end
 
@@ -2678,7 +2689,7 @@ module ApplicationController::CiProcessing
 
   def configuration_job_delete
     assert_privileges("configuration_job_delete")
-    delete_elements(ManageIQ::Providers::AnsibleTower::ConfigurationManager::Job,
+    delete_elements(ManageIQ::Providers::AnsibleTower::AutomationManager::Job,
                     :process_configuration_jobs,
                     'configuration_job')
   end

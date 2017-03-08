@@ -1,4 +1,4 @@
-.maincontent{:xmlns => "http://www.w3.org/1999/html"}
+.maincontent
   = render :partial => "layouts/flash_msg"
   .form-horizontal.static
     .form-group
@@ -6,7 +6,7 @@
         - if @record.picture
           %img{:src => "#{@record.picture.url_path}?#{rand(99_999_999)}"}/
         - else
-          %img{:src => image_path('100/service_template.png')}/
+          %i.product.product-template
         %br
         %br
       .col-md-9
@@ -26,8 +26,9 @@
           %label.col-md-2.control-label
             = _('Long Description')
           .col-md-8
-            %p.form-control-static
-              = @record.long_description.to_s.html_safe
+            %p.form-control-static#long_description
+              %miq-sanitize{:value => @record.long_description}
+
     .form-group
       .col-md-1{:align => "center"}
         #buttons
@@ -35,6 +36,9 @@
                        :class   => "btn btn-default",
                        :alt     => t = _("Order this Service"),
                        :title   => t,
-                       :onclick => "miqAjaxButton('#{url_for(:action => "svc_catalog_provision",
+                       :onclick => "miqAjaxButton('#{url_for_only_path(:action => "svc_catalog_provision",
                                                              :id     => @record.id,
                                                            :button => "order")}');")
+
+:javascript
+  miq_bootstrap('#long_description', 'miq.helpers');

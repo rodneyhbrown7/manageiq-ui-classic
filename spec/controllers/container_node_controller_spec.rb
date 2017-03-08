@@ -17,7 +17,7 @@ describe ContainerNodeController do
     get :show, :params => { :id => container_node.id }
     expect(response.status).to eq(200)
     expect(response.body).to_not be_empty
-    expect(assigns(:breadcrumbs)).to eq([{:name => "Container Nodes",
+    expect(assigns(:breadcrumbs)).to eq([{:name => "Nodes",
                                           :url  => "/container_node/show_list?page=&refresh=y"},
                                          {:name => "Test Node (Summary)",
                                           :url  => "/container_node/show/#{container_node.id}"}])
@@ -52,4 +52,6 @@ describe ContainerNodeController do
     expect(response.status).to eq(200)
     expect(response.body).to_not be_empty
   end
+
+  include_examples '#download_summary_pdf', :container_node
 end

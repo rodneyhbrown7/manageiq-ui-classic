@@ -2,11 +2,11 @@ module CloudObjectStoreObjectHelper::TextualSummary
   include TextualMixins::TextualGroupTags
 
   def textual_group_properties
-    %i(key content_length last_modified etag)
+    TextualGroup.new(_("Properties"), %i(key content_length last_modified etag))
   end
 
   def textual_group_relationships
-    %i(parent_ems_cloud ems cloud_tenant cloud_object_store_container)
+    TextualGroup.new(_("Relationships"), %i(parent_ems_cloud ems cloud_tenant cloud_object_store_container))
   end
 
   def textual_parent_ems_cloud
@@ -39,7 +39,7 @@ module CloudObjectStoreObjectHelper::TextualSummary
     h = {:label => label, :icon => "pficon pficon-cloud-tenant", :value => (cloud_tenant.nil? ? "None" : cloud_tenant.name)}
     if cloud_tenant && role_allows?(:feature => "cloud_tenant_show")
       h[:title] = _("Show this Cloud Object's parent %{parent}") % {:parent => label}
-      h[:link]  = url_for(:controller => 'cloud_tenant', :action => 'show', :id => cloud_tenant)
+      h[:link]  = url_for_only_path(:controller => 'cloud_tenant', :action => 'show', :id => cloud_tenant)
     end
     h
   end
@@ -54,7 +54,7 @@ module CloudObjectStoreObjectHelper::TextualSummary
     }
     if object_store_container && role_allows?(:feature => "cloud_object_store_container_show")
       h[:title] = _("Show this Cloud Object's parent %{parent}") % {:parent => label}
-      h[:link]  = url_for(:controller => 'cloud_object_store_container',
+      h[:link]  = url_for_only_path(:controller => 'cloud_object_store_container',
                           :action     => 'show',
                           :id         => object_store_container)
     end

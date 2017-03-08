@@ -9,14 +9,16 @@ class MiddlewareDomainController < ApplicationController
   after_action :cleanup_action
   after_action :set_session_data
 
-  def show
-    return unless init_show
-    @display = params[:display] unless params[:display].nil?
-    case @display
-    when 'middleware_server_groups' then show_middleware_entities(MiddlewareServerGroup)
-    else show_middleware
-    end
+  def self.display_methods
+    %i(middleware_server_groups)
   end
 
   menu_section :cnt
+
+  private
+
+  def textual_group_list
+    [%i(properties), %i(relationships smart_management)]
+  end
+  helper_method :textual_group_list
 end

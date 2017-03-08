@@ -1,6 +1,5 @@
 - if @edit
-  - url = url_for(:action => 'rbac_group_field_changed',
-                  :id     => "#{@edit[:group_id] || "new"}")
+  - url = url_for_only_path(:action => 'rbac_group_field_changed', :id => (@edit[:group_id] || "new"))
   - combo_url = "/ops/rbac_group_field_changed/#{@edit[:group_id] || 'new'}"
 = render :partial => "layouts/flash_msg"
 #main_div
@@ -57,7 +56,7 @@
         - if !@edit
           - if @group.tenant
             - tenant = @group.tenant
-            - params = {:class => "product product-#{tenant.divisible ? "tenant" : "project"}"}
+            - params = {:class => "pficon pficon-#{tenant.divisible ? "tenant" : "project"}"}
             - if role_allows?(:feature => "rbac_tenant_view")
               - params[:class] = "#{params[:class]} pointer"
               - params[:onclick] = "miqTreeActivateNode('rbac_tree', 'tn-#{to_cid(tenant.id)}');"

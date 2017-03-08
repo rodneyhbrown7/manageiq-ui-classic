@@ -5,51 +5,52 @@ module EmsSwiftHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(provider_region hostname ipaddress type port guid)
+    TextualGroup.new(_("Properties"), %i(provider_region hostname ipaddress type port guid))
   end
 
   def textual_group_relationships
-    %i(parent_ems_cloud cloud_object_store_containers cloud_object_store_objects)
+    TextualGroup.new(_("Relationships"), %i(parent_ems_cloud cloud_object_store_containers cloud_object_store_objects))
   end
 
   def textual_group_status
-    textual_authentications(@ems.authentication_for_summary) + %i(refresh_status)
+    TextualGroup.new(_("Status"), textual_authentications(@record.authentication_for_summary) + %i(refresh_status))
   end
 
   def textual_group_smart_management
-    %i(zone tags)
+    TextualTags.new(_("Smart Management"), %i(zone tags))
   end
 
   def textual_group_topology
+    nil
   end
 
   #
   # Items
   #
   def textual_provider_region
-    return nil if @ems.provider_region.nil?
-    {:label => _("Region"), :value => @ems.description}
+    return nil if @record.provider_region.nil?
+    {:label => _("Region"), :value => @record.description}
   end
 
   def textual_hostname
-    @ems.hostname
+    @record.hostname
   end
 
   def textual_ipaddress
-    return nil if @ems.ipaddress.blank?
-    {:label => _("Discovered IP Address"), :value => @ems.ipaddress}
+    return nil if @record.ipaddress.blank?
+    {:label => _("Discovered IP Address"), :value => @record.ipaddress}
   end
 
   def textual_type
-    @ems.emstype_description
+    @record.emstype_description
   end
 
   def textual_port
-    @ems.supports_port? ? {:label => _("API Port"), :value => @ems.port} : nil
+    @record.supports_port? ? {:label => _("API Port"), :value => @record.port} : nil
   end
 
   def textual_guid
-    {:label => _("Management Engine GUID"), :value => @ems.guid}
+    {:label => _("Management Engine GUID"), :value => @record.guid}
   end
 
   def textual_parent_ems_cloud
@@ -65,6 +66,6 @@ module EmsSwiftHelper::TextualSummary
   end
 
   def textual_zone
-    {:label => _("Managed by Zone"), :icon => "pficon pficon-zone", :value => @ems.zone.try(:name)}
+    {:label => _("Managed by Zone"), :icon => "pficon pficon-zone", :value => @record.zone.try(:name)}
   end
 end

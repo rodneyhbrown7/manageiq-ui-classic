@@ -229,6 +229,11 @@ class CloudSubnetController < ApplicationController
 
   private
 
+  def textual_group_list
+    [%i(properties relationships), %i(tags)]
+  end
+  helper_method :textual_group_list
+
   def switch_to_bol(option)
     if option && option =~ /on|true/i
       true
@@ -244,7 +249,7 @@ class CloudSubnetController < ApplicationController
 
     # A gateway address is automatically assigned by Openstack when gateway is null
     unless @subnet.gateway == params[:gateway]
-      options[:gateway_ip] = params[:gateway].empty? ? nil : params[:gateway]
+      options[:gateway_ip] = params[:gateway].blank? ? nil : params[:gateway]
     end
     unless @subnet.dhcp_enabled == switch_to_bol(params[:dhcp_enabled])
       options[:enable_dhcp] = switch_to_bol(params[:dhcp_enabled])
@@ -262,7 +267,7 @@ class CloudSubnetController < ApplicationController
     options[:cidr] = params[:cidr] if params[:cidr]
     # An address is automatically assigned by Openstack when gateway is null
     if params[:gateway]
-      options[:gateway] = params[:gateway].empty? ? nil : params[:gateway]
+      options[:gateway] = params[:gateway].blank? ? nil : params[:gateway]
     end
     options[:ip_version] = params[:ip_version]
     options[:cloud_tenant] = find_by_id_filtered(CloudTenant, params[:cloud_tenant_id]) if params[:cloud_tenant_id]

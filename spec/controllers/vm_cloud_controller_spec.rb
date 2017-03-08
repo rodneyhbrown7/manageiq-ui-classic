@@ -81,7 +81,7 @@ describe VmCloudController do
       controller.instance_variable_set(:@edit,
                                        :new      => {:flavor => flavor.id},
                                        :explorer => false)
-      expect_any_instance_of(VmCloud).to receive(:resize).with(flavor)
+      expect_any_instance_of(VmCloud).to receive(:resize_queue).with(controller.current_user.userid, flavor)
       post :resize_vm, :params => {
         :button => 'submit',
         :id     => vm_openstack.id
@@ -105,7 +105,7 @@ describe VmCloudController do
       controller.instance_variable_set(:@edit,
                                        :new      => {},
                                        :explorer => false)
-      expect_any_instance_of(VmCloud).to receive(:live_migrate)
+      expect(VmCloud).to receive(:live_migrate_queue)
       post :live_migrate_vm, :params => {
         :button => 'submit',
         :id     => vm_openstack.id
@@ -129,7 +129,7 @@ describe VmCloudController do
       controller.instance_variable_set(:@edit,
                                        :new      => {},
                                        :explorer => false)
-      expect_any_instance_of(VmCloud).to receive(:evacuate)
+      expect_any_instance_of(VmCloud).to receive(:evacuate_queue)
       post :evacuate_vm, :params => {
         :button => 'submit',
         :id     => vm_openstack.id
@@ -183,4 +183,7 @@ describe VmCloudController do
                                                                        "fingerprint"
     end
   end
+
+  include_examples '#download_summary_pdf', :vm_cloud
+  include_examples '#download_summary_pdf', :template_azure
 end

@@ -7,11 +7,20 @@ module CloudSubnetHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(name type cidr gateway network_protocol dns_nameservers_show allocation_pools host_routes ip_version)
+    TextualGroup.new(
+      _("Properties"),
+      %i(name type cidr gateway network_protocol dns_nameservers_show allocation_pools host_routes ip_version)
+    )
   end
 
   def textual_group_relationships
-    %i(parent_ems_cloud ems_network cloud_tenant availability_zone instances cloud_network network_router parent_subnet managed_subnets)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(
+        parent_ems_cloud ems_network cloud_tenant availability_zone instances cloud_network
+        network_router parent_subnet managed_subnets
+      )
+    )
   end
 
   #
@@ -42,7 +51,11 @@ module CloudSubnetHelper::TextualSummary
   end
 
   def textual_host_routes
-    @record.host_routes.map { |x| "next_hop: #{x['next_hop']}, destination: #{x['destination']}" }.join(" | ") if @record.host_routes
+    if @record.host_routes
+      @record.host_routes.map do |x|
+        "next_hop: #{x['next_hop']}, destination: #{x['destination']}"
+      end.join(" | ")
+    end
   end
 
   def textual_ip_version
@@ -58,7 +71,7 @@ module CloudSubnetHelper::TextualSummary
     num   = @record.number_of(:vms)
     h     = {:label => label, :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'instances')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'instances')
       h[:title] = _("Show all %{label}") % {:label => label}
     end
     h
@@ -85,7 +98,7 @@ module CloudSubnetHelper::TextualSummary
     num   = @record.number_of(:cloud_subnets)
     h     = {:label => label, :icon => "product product-cloud_network", :value => num}
     if num > 0 && role_allows?(:feature => "cloud_subnet_show_list")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'cloud_subnets')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'cloud_subnets')
       h[:title] = _("Show all %{label}") % {:label => label}
     end
     h

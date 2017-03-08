@@ -7,25 +7,30 @@ module ServiceHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(name description guid)
+    TextualGroup.new(_("Properties"), %i(name description guid))
   end
 
   def textual_group_vm_totals
-    %i(aggregate_all_vm_cpus aggregate_all_vm_memory
-       aggregate_all_vm_disk_count aggregate_all_vm_disk_space_allocated
-       aggregate_all_vm_disk_space_used aggregate_all_vm_memory_on_disk)
+    TextualGroup.new(
+      _("Totals for Service VMs"),
+      %i(
+        aggregate_all_vm_cpus aggregate_all_vm_memory
+        aggregate_all_vm_disk_count aggregate_all_vm_disk_space_allocated
+        aggregate_all_vm_disk_space_used aggregate_all_vm_memory_on_disk
+      )
+    )
   end
 
   def textual_group_lifecycle
-    %i(retirement_date retirement_state owner group created)
+    TextualGroup.new(_("Lifecycle"), %i(retirement_date retirement_state owner group created))
   end
 
   def textual_group_relationships
-    %i(catalog_item parent_service orchestration_stack job)
+    TextualGroup.new(_("Relationships"), %i(catalog_item parent_service orchestration_stack job))
   end
 
   def textual_group_miq_custom_attributes
-    textual_miq_custom_attributes
+    TextualGroup.new(_("Custom Attributes"), textual_miq_custom_attributes)
   end
 
   #
@@ -77,7 +82,7 @@ module ServiceHelper::TextualSummary
     s = {:label => _("Parent Catalog Item"), :icon => "product product-template", :value => (st.nil? ? _("None") : st.name)}
     if st && role_allows?(:feature => "catalog_items_accord")
       s[:title] = _("Show this Service's Parent Service Catalog")
-      s[:link]  = url_for(:controller => 'catalog', :action => 'show', :id => st)
+      s[:link]  = url_for_only_path(:controller => 'catalog', :action => 'show', :id => st)
     end
     s
   end
@@ -90,7 +95,7 @@ module ServiceHelper::TextualSummary
       :icon  => parent.picture ? nil : "pficon pficon-service",
       :value => parent.name,
       :title => _("Show this Service's Parent Service"),
-      :link  => url_for(:controller => 'service', :action => 'show', :id => parent)
+      :link  => url_for_only_path(:controller => 'service', :action => 'show', :id => parent)
     } if parent
   end
 
@@ -115,7 +120,7 @@ module ServiceHelper::TextualSummary
       :icon  => "product product-orchestration_stack",
       :value => job.name,
       :title => _("Show this Service's Job"),
-      :link  => url_for(:controller => 'configuration_job', :action => 'show', :id => job.id)
+      :link  => url_for_only_path(:controller => 'configuration_job', :action => 'show', :id => job.id)
     } if job
   end
 
@@ -134,6 +139,6 @@ module ServiceHelper::TextualSummary
   def textual_miq_custom_attributes
     attrs = @record.miq_custom_attributes
     return nil if attrs.blank?
-    attrs.collect { |a| {:label => a.name, :value => a.value} }
+    attrs.sort_by(&:name).collect { |a| {:label => a.name, :value => a.value} }
   end
 end

@@ -414,8 +414,8 @@ describe VmInfraController do
 
     post :x_button, :params => { :pressed => 'vm_reconfigure', :id => vm.id }
     expect(response.status).to eq(200)
-    expect(response.body).to include('class=\"btn btn-primary\" alt=\"Submit\"')
-    expect(response.body).to include('class=\"btn btn-default\" alt=\"Cancel\"')
+    expect(response.body).to include("miq-button alt='Submit'")
+    expect(response.body).to include("miq-button alt='Cancel'")
   end
 
   context "breadcrumbs" do
@@ -472,4 +472,7 @@ describe VmInfraController do
                                :id          => vm_vmware.id}
     expect(assigns(:flash_array).first[:message]).to include("Create Snapshot")
   end
+
+  include_examples '#download_summary_pdf', :vm_vmware
+  include_examples '#download_summary_pdf', :template_vmware
 end

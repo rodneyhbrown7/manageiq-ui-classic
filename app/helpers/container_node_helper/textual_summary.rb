@@ -4,32 +4,46 @@ module ContainerNodeHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(name creation_timestamp resource_version num_cpu_cores memory
-       max_container_groups identity_system identity_machine identity_infra container_runtime_version
-       kubernetes_kubelet_version kubernetes_proxy_version os_distribution kernel_version)
+    TextualGroup.new(
+      _("Properties"),
+      %i(
+        name creation_timestamp resource_version num_cpu_cores memory
+        max_container_groups identity_system identity_machine identity_infra container_runtime_version
+        kubernetes_kubelet_version kubernetes_proxy_version os_distribution kernel_version
+      )
+    )
   end
 
   def textual_group_relationships
-    %i(ems container_routes container_services container_replicators container_groups containers lives_on container_images)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(
+        ems container_routes container_services container_replicators container_groups containers
+        lives_on container_images
+      )
+    )
   end
 
   def textual_group_conditions
-    labels = [_("Name"), _("Status"), _("Last Transition Time"), _("Reason")]
-    h = {:labels => labels}
-    h[:values] = @record.container_conditions.collect do |condition|
-      [
-        condition.name,
-        condition.status,
-        (condition.last_transition_time || ""),
-        (condition.reason || "")
-      ]
-    end
-    h
+    TextualMultilabel.new(
+      _("Conditions"),
+      :additional_table_class => "table-fixed",
+      :labels                 => [_("Name"), _("Status"), _("Last Transition Time"), _("Reason")],
+      :values                 => @record.container_conditions.collect do |condition|
+        [
+          condition.name,
+          condition.status,
+          (condition.last_transition_time || ""),
+          (condition.reason || "")
+        ]
+      end
+    )
   end
 
   def textual_group_smart_management
     items = %w(tags)
-    items.collect { |m| send("textual_#{m}") }.flatten.compact
+    i = items.collect { |m| send("textual_#{m}") }.flatten.compact
+    TextualGroup.new(_("Smart Management"), i)
   end
 
   #
@@ -42,12 +56,11 @@ module ContainerNodeHelper::TextualSummary
   end
 
   def textual_memory
-    if @record.try(:hardware).try(:memory_mb)
-      memory = number_to_human_size(
-        @record.hardware.memory_mb * 1.megabyte, :precision => 0)
-    else
-      memory = _("N/A")
-    end
+    memory = if @record.try(:hardware).try(:memory_mb)
+               number_to_human_size(@record.hardware.memory_mb * 1.megabyte, :precision => 0)
+             else
+               _("N/A")
+             end
     {:label => _("Memory"), :value => memory}
   end
 
@@ -80,7 +93,7 @@ module ContainerNodeHelper::TextualSummary
       :label => _("Underlying %{name}") % {:name => lives_on_entity_name},
       :image => "svg/vendor-#{lives_on_ems.image_name}.svg",
       :value => @record.lives_on.name.to_s,
-      :link  => url_for(
+      :link  => url_for_only_path(
         :action     => 'show',
         :controller => 'vm_or_template',
         :id         => @record.lives_on.id
@@ -101,11 +114,11 @@ module ContainerNodeHelper::TextualSummary
   end
 
   def textual_os_distribution
-    if @record.computer_system.nil? || @record.computer_system.operating_system.nil?
-      distribution = _("N/A")
-    else
-      distribution = @record.computer_system.operating_system.distribution
-    end
+    distribution = if @record.computer_system.nil? || @record.computer_system.operating_system.nil?
+                     _("N/A")
+                   else
+                     @record.computer_system.operating_system.distribution
+                   end
     {:label => _("Operating System Distribution"), :value => distribution}
   end
 

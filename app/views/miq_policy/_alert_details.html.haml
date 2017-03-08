@@ -1,5 +1,5 @@
 - if @edit
-  - url = url_for(:action => 'alert_field_changed', :id => "#{@alert.id || 'new'}")
+  - url = url_for_only_path(:action => 'alert_field_changed', :id => (@alert.id || 'new'))
   - observe = {:url => url}.to_json
 #alert_details_div
   - if @assign
@@ -294,11 +294,8 @@
                       - id = "a-#{to_cid(oa.id)}"
                       %tr{:title => _("View this Action"),
                         :onclick => remote_function(:url => "/miq_policy/x_show/#{id}?accord=action")}
-                        %td.narrow
-                          - if oa.action_type == "default"
-                            %img{:src => image_path('100/miq_action.png')}
-                          - else
-                            %img{:src => image_path("100/miq_action_#{oa.action_type}.png")}
-                        %td.narrow
+                        %td.table-view-pf-select
+                          %i{:class => oa.decorate.fonticon}
+                        %td.table-view-pf-select
                           = oa.description
               %hr

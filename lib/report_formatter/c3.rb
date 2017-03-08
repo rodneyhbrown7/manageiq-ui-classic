@@ -60,7 +60,8 @@ module ReportFormatter
         :data     => {:columns => [], :names => {}},
         :axis     => {:x => {:tick => {}}, :y => {:tick => {}}},
         :tooltip  => {:format => {}},
-        :miq      => {:name_table => {}, :category_table => {}}
+        :miq      => {:name_table => {}, :category_table => {}},
+        :legend   => {}
       }
 
       if chart_is_2d?
@@ -90,11 +91,14 @@ module ReportFormatter
         unless mri.graph[:type] == 'Donut' || mri.graph[:type] == 'Pie'
           mri.chart[:legend] = {:position => 'bottom'}
         end
-        format, options = javascript_format(mri.graph[:columns][0], nil)
+
+        column = grouped_by_tag_category? ? mri.graph[:columns][0].split(/_+/)[0..-2].join('_') : mri.graph[:columns][0]
+        format, options = javascript_format(column, nil)
         return unless format
 
         axis_formatter = {:function => format, :options => options}
         mri.chart[:axis][:y] = {:tick => {:format => axis_formatter}}
+        mri.chart[:miq][:format] = axis_formatter
       end
     end
 
@@ -111,7 +115,7 @@ module ReportFormatter
     end
 
     # change structure of chart JSON to performance chart with timeseries data
-    def build_performance_chart_area(maxcols, divider)
+    def build_performance_chart_area(maxcols)
       super
       change_structure_to_timeseries
     end
@@ -142,7 +146,7 @@ module ReportFormatter
       # set x axis type to timeseries and remove categories
       mri.chart[:axis][:x] = {:type => 'timeseries', :tick => {}}
       # set flag for performance chart
-      mri.chart[:miq] = {:performance_chart => true}
+      mri.chart[:miq][:performance_chart] = true
       # this conditions are taken from build_performance_chart_area method from chart_commons.rb
       if mri.db.include?("Daily") || (mri.where_clause && mri.where_clause.include?("daily"))
         # set format for parsing
@@ -158,19 +162,23 @@ module ReportFormatter
       end
     end
 
-    def build_reporting_chart(_maxcols, _divider)
+    def build_reporting_chart(_maxcols)
       mri.chart[:miq][:expand_tooltip] = true
       super
     end
 
-    def build_reporting_chart_numeric(_maxcols, _divider)
+    def build_reporting_chart_numeric(_maxcols)
       mri.chart[:miq][:expand_tooltip] = true
       super
     end
 
-    def build_performance_chart_pie(_maxcols, _divider)
+    def build_performance_chart_pie(_maxcols)
       mri.chart[:miq][:expand_tooltip] = true
       super
+    end
+
+    def grouped_by_tag_category?
+      !!(mri.performance && mri.performance.fetch_path(:group_by_category))
     end
   end
 end

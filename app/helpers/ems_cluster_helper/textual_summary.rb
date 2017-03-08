@@ -5,32 +5,43 @@ module EmsClusterHelper::TextualSummary
   #
 
   def textual_group_host_totals
-    %i(aggregate_cpu_speed aggregate_memory aggregate_physical_cpus aggregate_cpu_total_cores aggregate_disk_capacity block_storage_disk_usage object_storage_disk_usage)
+    TextualGroup.new(
+      _("Totals for %{hosts}") % {:hosts => title_for_hosts},
+      %i(
+        aggregate_cpu_speed aggregate_memory aggregate_physical_cpus aggregate_cpu_total_cores
+        aggregate_disk_capacity block_storage_disk_usage object_storage_disk_usage
+      )
+    )
   end
 
   def textual_group_vm_totals
-    %i(aggregate_vm_memory aggregate_vm_cpus)
+    TextualGroup.new(_("Totals for VMs"), %i(aggregate_vm_memory aggregate_vm_cpus))
   end
 
   def textual_group_relationships
-    %i(ems parent_datacenter total_hosts total_direct_vms allvms_size total_miq_templates total_vms rps_size states_size)
-  end
-
-  def textual_group_storage_relationships
-    %i(ss_size sv_size fs_size se_size)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(
+        ems parent_datacenter total_hosts total_direct_vms allvms_size total_miq_templates
+        total_vms rps_size states_size
+      )
+    )
   end
 
   def textual_group_configuration
     return nil if @record.ha_enabled.nil? && @record.ha_admit_control.nil? && @record.drs_enabled.nil? &&
                   @record.drs_automation_level.nil? && @record.drs_migration_threshold.nil?
-    %i(ha_enabled ha_admit_control drs_enabled drs_automation_level drs_migration_threshold)
+    TextualGroup.new(
+      _("Configuration"),
+      %i(ha_enabled ha_admit_control drs_enabled drs_automation_level drs_migration_threshold)
+    )
   end
 
   def textual_group_openstack_status
     return nil unless @record.kind_of?(ManageIQ::Providers::Openstack::InfraManager::EmsCluster)
     ret = textual_generate_openstack_status
 
-    ret.blank? ? nil : ret
+    ret.blank? ? nil : TextualMultilink.new(_("OpenStack Status"), ret)
   end
 
   #
@@ -47,7 +58,7 @@ module EmsClusterHelper::TextualSummary
                  :value => _("Running (%{number})") % {:number => running_count},
                  :icon  => failed_count == 0 && running_count > 0 ? 'pficon pficon-ok' : nil,
                  :link  => if running_count > 0
-                             url_for(:controller              => controller.controller_name,
+                             url_for_only_path(:controller              => controller.controller_name,
                                      :action                  => 'show',
                                      :id                      => @record,
                                      :display                 => 'hosts',
@@ -59,7 +70,7 @@ module EmsClusterHelper::TextualSummary
                 :value => _("Failed (%{number})") % {:number => failed_count},
                 :icon  => failed_count > 0 ? 'pficon pficon-error-circle-o' : nil,
                 :link  => if failed_count > 0
-                            url_for(:controller              => controller.controller_name,
+                            url_for_only_path(:controller              => controller.controller_name,
                                     :action                  => 'show',
                                     :id                      => @record,
                                     :display                 => 'hosts',
@@ -71,7 +82,7 @@ module EmsClusterHelper::TextualSummary
              :value => _("All (%{number})") % {:number => all_count},
              :icon  => 'pficon pficon-screen',
              :link  => if all_count > 0
-                         url_for(:controller              => controller.controller_name,
+                         url_for_only_path(:controller              => controller.controller_name,
                                  :action                  => 'show',
                                  :display                 => 'hosts',
                                  :id                      => @record,
@@ -129,7 +140,7 @@ module EmsClusterHelper::TextualSummary
     h = {:label => title_for_hosts, :icon => "pficon pficon-screen", :value => num}
     if num > 0 && role_allows?(:feature => "host_show_list")
       h[:title] = _("Show all %{title}") % {:title => title_for_hosts}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'hosts')
+      h[:link]  = url_for_only_path(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'hosts')
     end
     h
   end
@@ -139,7 +150,7 @@ module EmsClusterHelper::TextualSummary
     h = {:label => _("Direct VMs"), :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
       h[:title] = _("Show VMs in this %{title}, but not in Resource Pools below") % {:title => cluster_title}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'vms')
+      h[:link]  = url_for_only_path(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'vms')
     end
     h
   end
@@ -149,7 +160,7 @@ module EmsClusterHelper::TextualSummary
     h = {:label => _("All VMs"), :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
       h[:title] = _("Show all VMs in this %{title}") % {:title => cluster_title}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'all_vms')
+      h[:link]  = url_for_only_path(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'all_vms')
     end
     h
   end
@@ -161,7 +172,7 @@ module EmsClusterHelper::TextualSummary
     h = {:label => _("All Templates"), :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "miq_template_show_list")
       h[:title] = _("Show all Templates in this %{title}") % {:title => cluster_title}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'miq_templates')
+      h[:link]  = url_for_only_path(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'miq_templates')
     end
     h
   end
@@ -171,7 +182,7 @@ module EmsClusterHelper::TextualSummary
     h = {:label => _("All VMs (Tree View)"), :icon => "pficon pficon-virtual-machine", :value => num}
     if num > 0 && role_allows?(:feature => "vm_show_list")
       h[:title] = _("Show tree of all VMs by Resource Pool in this %{title}") % {:title => cluster_title}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'descendant_vms')
+      h[:link]  = url_for_only_path(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'descendant_vms')
     end
     h
   end
@@ -181,7 +192,7 @@ module EmsClusterHelper::TextualSummary
 
     textual_link(@record.resource_pools,
                  :as   => EmsCluster,
-                 :link => url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'resource_pools'))
+                 :link => url_for_only_path(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'resource_pools'))
   end
 
   def textual_states_size
@@ -190,51 +201,7 @@ module EmsClusterHelper::TextualSummary
     h = {:label => _("Drift History"), :icon => "product product-drift", :value => (num == 0 ? _("None") : num)}
     if num > 0
       h[:title] = _("Show %{title} drift history") % {:title => cluster_title}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'drift_history', :id => @record)
-    end
-    h
-  end
-
-  def textual_ss_size
-    num = @record.storage_systems.count
-    label = ui_lookup(:tables => "ontap_storage_system")
-    h = {:label => label, :icon => "pficon pficon-volume", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_storage_system_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'storage_systems')
-    end
-    h
-  end
-
-  def textual_sv_size
-    num = @record.storage_systems.count
-    label = ui_lookup(:tables => "ontap_storage_volume")
-    h = {:label => label, :icon => "pficon pficon-volume", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_storage_system_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'ontap_storage_volumes')
-    end
-    h
-  end
-
-  def textual_fs_size
-    num = @record.file_shares.count
-    label = ui_lookup(:tables => "ontap_file_share")
-    h = {:label => label, :icon => "product product-file_share", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_file_share_show_list")
-      h[:title] = label
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'ontap_file_shares')
-    end
-    h
-  end
-
-  def textual_se_size
-    num = @record.base_storage_extents.count
-    label = ui_lookup(:tables => "cim_base_storage_extent")
-    h = {:label => label, :icon => "pficon pficon-volume", :value => num}
-    if num > 0 && role_allows?(:feature => "cim_base_storage_extent_show_list")
-      h[:title] = label
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => @record, :display => 'storage_extents')
+      h[:link]  = url_for_only_path(:controller => 'ems_cluster', :action => 'drift_history', :id => @record)
     end
     h
   end

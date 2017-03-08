@@ -1,4 +1,4 @@
-module MiddlewareOperationsMixin
+module Mixins::MiddlewareOperationsMixin
   extend ActiveSupport::Concern
 
   def button
@@ -55,6 +55,7 @@ module MiddlewareOperationsMixin
     end
     operation_triggered = run_operation_batch(operation_info, items, klass)
     add_flash(_(success_msg) % {:msg => operation_info.fetch(:msg)}) if operation_triggered
+    operation_triggered
   end
 
   def run_operation_on_record(operation_info, item_record)
@@ -70,7 +71,7 @@ module MiddlewareOperationsMixin
 
   def skip_operation?(item_record, operation_info)
     provider_name = 'Hawkular'
-    if operation_info.fetch(:skip)
+    if operation_info.key?(:skip) && operation_info.fetch(:skip)
       item_record.try(:product) == provider_name || item_record.try(:middleware_server).try(:product) == provider_name
     end
   end

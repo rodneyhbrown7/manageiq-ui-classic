@@ -95,7 +95,7 @@ module ApplicationController::Filter
       exp = exp_find_by_token(@edit[@expkey][:expression], token)
       @edit[:edit_exp] = copy_hash(exp)
       begin
-        @edit[@expkey].update_from_exp_tree(exp)
+        @edit[@expkey].update_from_exp_tree(@edit[:edit_exp])
       rescue => bang
         @exp_atom_errors = [_("There is an error in the selected expression element, perhaps it was imported or edited manually."),
                             _("This element should be removed and recreated or you can report the error to your %{product} administrator.") % {:product => I18n.t('product.name')},
@@ -353,8 +353,7 @@ module ApplicationController::Filter
         add_flash(_("%{model} \"%{name}\": Error during 'delete': %{error_message}") %
           {:model => ui_lookup(:model => "MiqSearch"), :name => sname, :error_message => bang.message}, :error)
       else
-        if @settings[:default_search] && @settings[:default_search][@edit[@expkey][:exp_model].to_s.to_sym] # See if a default search exists
-          def_search = @settings[:default_search][@edit[@expkey][:exp_model].to_s.to_sym]
+        if (def_search = settings(:default_search, @edit[@expkey][:exp_model].to_s.to_sym)) # See if a default search exists
           if id.to_i == def_search.to_i
             user_settings = current_user.settings || {}
             user_settings[:default_search].delete(@edit[@expkey][:exp_model].to_s.to_sym)
@@ -420,9 +419,9 @@ module ApplicationController::Filter
     end
 
     if ["delete", "saveit"].include?(params[:button])
-      if @edit[:in_explorer]
-        if "cs_filter_tree" == x_active_tree.to_s
-          build_configuration_manager_tree(:cs_filter, x_active_tree)
+      if @edit[:in_explorer] || x_active_tree == :storage_tree
+        if "configuration_manager_cs_filter_tree" == x_active_tree.to_s
+          build_configuration_manager_tree(:configuration_manager_cs_filter, x_active_tree)
         else
           tree_type = x_active_tree.to_s.sub(/_tree/, '').to_sym
           builder = TreeBuilder.class_for_type(tree_type)
@@ -449,9 +448,9 @@ module ApplicationController::Filter
       end
 
       if ["delete", "saveit"].include?(params[:button])
-        if @edit[:in_explorer]
+        if @edit[:in_explorer] || x_active_tree == :storage_tree
           tree_name = x_active_tree.to_s
-          if "cs_filter_tree" == tree_name
+          if "configuration_manager_cs_filter_tree_tree" == tree_name
             page.replace_html("#{tree_name}_div", :partial => "provider_foreman/#{tree_name}")
           else
             page.replace_html("#{tree_name}_div", :partial => "shared/tree", :locals => {
@@ -511,7 +510,7 @@ module ApplicationController::Filter
         if x_active_tree.to_s =~ /_filter_tree$/ &&
            !["Vm", "MiqTemplate"].include?(TreeBuilder.get_model_for_prefix(@nodetype))
           search_id = 0
-          if x_active_tree == :cs_filter_tree
+          if x_active_tree == :configuration_manager_cs_filter_tree || x_active_tree == :automation_manager_cs_filter_tree
             adv_search_build("ConfiguredSystem")
           else
             adv_search_build(vm_model_from_active_tree(x_active_tree))
@@ -529,8 +528,9 @@ module ApplicationController::Filter
         @edit[:expression][:exp_last_loaded] = nil
         session[:adv_search] ||= {}                   # Create/reuse the adv search hash
         session[:adv_search][@edit[@expkey][:exp_model]] = copy_hash(@edit) # Save by model name in settings
-        if @settings[:default_search] && @settings[:default_search][@view.db.to_s.to_sym] && @settings[:default_search][@view.db.to_s.to_sym].to_i != 0
-          s = MiqSearch.find(@settings[:default_search][@view.db.to_s.to_sym])
+        default_search = settings(:default_search, @view.db.to_s.to_sym)
+        if default_search.present? && default_search.to_i != 0
+          s = MiqSearch.find(default_search)
           @edit[@expkey].select_filter(s)
           @edit[:selected] = false
         else
@@ -558,14 +558,12 @@ module ApplicationController::Filter
         end
       end
       if @flash_array.blank?
-        @settings[:default_search] ||= {}
-        @settings[:default_search][cols_key] ||= {}
-        @settings[:default_search][cols_key] = params[:id].to_i
+        @settings.store_path(:default_search, cols_key, params[:id].to_i)
 
         user_settings = current_user.settings || {}
         user_settings[:default_search] ||= {}
         user_settings[:default_search][cols_key] ||= {}
-        user_settings[:default_search][cols_key] = @settings[:default_search][cols_key]
+        user_settings[:default_search][cols_key] = settings(:default_search, cols_key)
         current_user.update_attributes(:settings => user_settings)
       end
     end
@@ -669,8 +667,8 @@ module ApplicationController::Filter
   # Set advanced search filter text
   def adv_search_set_text
     if @edit[@expkey].history.idx == 0                          # Are we pointing at the first exp
-      if @edit[:adv_search_name]
-        @edit[:adv_search_applied][:text] = _(" - Filtered by \"%{text}\"") % {:text => @edit[:adv_search_name]}
+      if @edit[:new_search_name]
+        @edit[:adv_search_applied][:text] = _(" - Filtered by \"%{text}\"") % {:text => @edit[:new_search_name]}
       else
         @edit[:adv_search_applied][:text] = _(" - Filtered by \"%{text}\" report") %
                                               {:text => @edit[:adv_search_report]}
@@ -987,7 +985,11 @@ module ApplicationController::Filter
 
   def build_listnav_search_list(db)
     @settings[:default_search] = current_user.settings[:default_search]  # Get the user's default search settings again, incase default search was deleted
-    @default_search = MiqSearch.find(@settings[:default_search][db.to_sym].to_s) if @settings[:default_search] && @settings[:default_search][db.to_sym] && @settings[:default_search][db.to_sym] != 0 && MiqSearch.exists?(@settings[:default_search][db.to_sym])
+    default_search_db = settings(:default_search, db.to_sym).to_s
+    if default_search_db.present? && default_search_db.to_i != 0 && MiqSearch.exists?(default_search_db)
+      @default_search = MiqSearch.find(default_search_db)
+    end
+
     temp = MiqSearch.new
     temp.description = _("ALL")
     temp.id = 0

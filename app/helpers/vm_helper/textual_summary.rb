@@ -18,69 +18,105 @@ module VmHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(name region server description hostname ipaddress custom_1 container host_platform tools_status load_balancer_health_check_state osinfo devices cpu_affinity snapshots advanced_settings resources guid storage_profile)
+    TextualGroup.new(
+      _("Properties"),
+      %i(
+        name region server description hostname ipaddress custom_1 container host_platform
+        tools_status load_balancer_health_check_state osinfo devices cpu_affinity snapshots
+        advanced_settings resources guid storage_profile
+      )
+    )
   end
 
   def textual_group_lifecycle
-    %i(discovered analyzed retirement_date retirement_state provisioned owner group)
+    TextualGroup.new(
+      _("Lifecycle"),
+      %i(discovered analyzed retirement_date retirement_state provisioned owner group)
+    )
   end
 
   def textual_group_relationships
-    %i(ems cluster host resource_pool storage service parent_vm genealogy drift scan_history cloud_network cloud_subnet)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(
+        ems cluster host resource_pool storage service parent_vm genealogy drift scan_history
+        cloud_network cloud_subnet
+      )
+    )
   end
 
   def textual_group_vm_cloud_relationships
-    %i(ems ems_infra cluster host availability_zone cloud_tenant flavor vm_template drift scan_history service
-       cloud_network cloud_subnet orchestration_stack cloud_networks cloud_subnets network_routers security_groups
-       floating_ips network_ports load_balancers cloud_volumes)
+    TextualGroup.new(
+      _("Relationships"),
+      %i(
+        ems ems_infra cluster host availability_zone cloud_tenant flavor vm_template drift scan_history service
+        cloud_network cloud_subnet orchestration_stack cloud_networks cloud_subnets network_routers security_groups
+        floating_ips network_ports load_balancers cloud_volumes
+      )
+    )
   end
 
   def textual_group_template_cloud_relationships
-    %i(ems parent_vm drift scan_history cloud_tenant)
+    TextualGroup.new(_("Relationships"), %i(ems parent_vm drift scan_history cloud_tenant))
   end
 
   def textual_group_security
-    %i(users groups patches)
+    TextualGroup.new(_("Security"), %i(users groups patches))
   end
 
   def textual_group_configuration
-    %i(guest_applications init_processes win32_services kernel_drivers filesystem_drivers filesystems registry_items)
+    TextualGroup.new(
+      _("Configuration"),
+      %i(guest_applications init_processes win32_services kernel_drivers filesystem_drivers filesystems registry_items)
+    )
   end
 
   def textual_group_datastore_allocation
-    %i(disks disks_aligned thin_provisioned allocated_disks allocated_total)
+    TextualGroup.new(
+      _("Datastore Allocation Summary"),
+      %i(disks disks_aligned thin_provisioned allocated_disks allocated_total)
+    )
   end
 
   def textual_group_datastore_usage
-    %i(usage_disks usage_snapshots usage_disk_storage usage_overcommitted)
+    TextualGroup.new(
+      _("Datastore Actual Usage Summary"),
+      %i(usage_disks usage_snapshots usage_disk_storage usage_overcommitted)
+    )
   end
 
   def textual_group_diagnostics
-    %i(processes event_logs)
-  end
-
-  def textual_group_storage_relationships
-    %i(storage_systems storage_volumes logical_disks file_shares)
+    TextualGroup.new(_("Diagnostics"), %i(processes event_logs))
   end
 
   def textual_group_vmsafe
-    %i(vmsafe_enable vmsafe_agent_address vmsafe_agent_port vmsafe_fail_open vmsafe_immutable_vm vmsafe_timeout)
+    TextualGroup.new(
+      _("VMsafe"),
+      %i(vmsafe_enable vmsafe_agent_address vmsafe_agent_port vmsafe_fail_open vmsafe_immutable_vm vmsafe_timeout)
+    )
   end
 
   def textual_group_miq_custom_attributes
-    textual_miq_custom_attributes
+    TextualGroup.new(_("Custom Attributes"), textual_miq_custom_attributes)
   end
 
   def textual_group_ems_custom_attributes
-    textual_ems_custom_attributes
+    TextualGroup.new(_("VC Custom Attributes"), textual_ems_custom_attributes)
   end
 
   def textual_group_power_management
-    %i(power_state boot_time state_changed_on)
+    TextualGroup.new(_("Power Management"), %i(power_state boot_time state_changed_on))
   end
 
   def textual_group_normal_operating_ranges
-    %i(normal_operating_ranges_cpu normal_operating_ranges_cpu_usage normal_operating_ranges_memory normal_operating_ranges_memory_usage)
+    TextualCustom.new(
+      _("Normal Operating Ranges (over 30 days)"),
+      'shared/summary/textual_normal_operating_ranges',
+      %i(
+        normal_operating_ranges_cpu normal_operating_ranges_cpu_usage normal_operating_ranges_memory
+        normal_operating_ranges_memory_usage
+      )
+    )
   end
 
   #
@@ -101,7 +137,7 @@ module VmHelper::TextualSummary
          :value    => ips.join(", "),
          :explorer => true}
     if @record.hardware.try(:networks) && @record.hardware.networks.present?
-      h[:link] = url_for(:action => 'show', :id => @record, :display => 'networks')
+      h[:link] = url_for_only_path(:action => 'show', :id => @record, :display => 'networks')
     end
     h
   end
@@ -129,7 +165,7 @@ module VmHelper::TextualSummary
       h[:image] = "svg/vendor-#{vendor}.svg"
       h[:title] = _("Show VMM container information")
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'hv_info')
+      h[:link] = url_for_only_path(:action => 'show', :id => @record, :display => 'hv_info')
 
       cpu_details =
         if @record.num_cpu && @record.cpu_cores_per_socket
@@ -161,14 +197,14 @@ module VmHelper::TextualSummary
     if role_allows?(:feature => "vm_snapshot_show_list") && @record.supports_snapshots?
       h[:title] = _("Show the snapshot info for this VM")
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'snapshot_info')
+      h[:link] = url_for_only_path(:action => 'show', :id => @record, :display => 'snapshot_info')
     end
     h
   end
 
   def textual_resources
     {:label => _("Resources"), :value => _("Available"), :title => _("Show resources of this VM"), :explorer => true,
-      :link => url_for(:action => 'show', :id => @record, :display => 'resources_info')}
+      :link => url_for_only_path(:action => 'show', :id => @record, :display => 'resources_info')}
   end
 
   def textual_guid
@@ -221,7 +257,7 @@ module VmHelper::TextualSummary
     h = {:label => title_for_cluster, :icon => "pficon pficon-cluster", :value => (cluster.nil? ? _("None") : cluster.name)}
     if cluster && role_allows?(:feature => "ems_cluster_show")
       h[:title] = _("Show this VM's %{title}") % {:title => title_for_cluster}
-      h[:link]  = url_for(:controller => 'ems_cluster', :action => 'show', :id => cluster)
+      h[:link]  = url_for_only_path(:controller => 'ems_cluster', :action => 'show', :id => cluster)
     end
     h
   end
@@ -232,7 +268,7 @@ module VmHelper::TextualSummary
     h = {:label => title_for_host, :icon => "pficon pficon-cluster", :value => (host.nil? ? _("None") : host.name)}
     if host && role_allows?(:feature => "host_show")
       h[:title] = _("Show this VM's %{title}") % {:title => title_for_host}
-      h[:link]  = url_for(:controller => 'host', :action => 'show', :id => host)
+      h[:link]  = url_for_only_path(:controller => 'host', :action => 'show', :id => host)
     end
     h
   end
@@ -242,7 +278,7 @@ module VmHelper::TextualSummary
     h = {:label => _("Resource Pool"), :icon => "pficon pficon-resource-pool", :value => (rp.nil? ? _("None") : rp.name)}
     if rp && role_allows?(:feature => "resource_pool_show")
       h[:title] = _("Show this VM's Resource Pool")
-      h[:link]  = url_for(:controller => 'resource_pool', :action => 'show', :id => rp)
+      h[:link]  = url_for_only_path(:controller => 'resource_pool', :action => 'show', :id => rp)
     end
     h
   end
@@ -257,7 +293,7 @@ module VmHelper::TextualSummary
       storage = storages.first
       h[:value] = storage.name
       h[:title] = _("Show this VM's %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => 'storage', :action => 'show', :id => storage)
+      h[:link]  = url_for_only_path(:controller => 'storage', :action => 'show', :id => storage)
     else
       h.delete(:image) # Image will be part of each line item, instead
       main = @record.storage
@@ -265,7 +301,7 @@ module VmHelper::TextualSummary
         {:icon  => "fa fa-database",
          :value => "#{s.name}#{" (main)" if s == main}",
          :title => _("Show this VM's %{label}") % {:label => label},
-         :link  => url_for(:controller => 'storage', :action => 'show', :id => s)}
+         :link  => url_for_only_path(:controller => 'storage', :action => 'show', :id => s)}
       end
     end
     h
@@ -287,7 +323,7 @@ module VmHelper::TextualSummary
          :value => (availability_zone.nil? ? _("None") : availability_zone.name)}
     if availability_zone && role_allows?(:feature => "availability_zone_show")
       h[:title] = _("Show this VM's %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => 'availability_zone', :action => 'show', :id => availability_zone)
+      h[:link]  = url_for_only_path(:controller => 'availability_zone', :action => 'show', :id => availability_zone)
     end
     h
   end
@@ -298,7 +334,7 @@ module VmHelper::TextualSummary
     h = {:label => label, :icon => "pficon-flavor", :value => (flavor.nil? ? _("None") : flavor.name)}
     if flavor && role_allows?(:feature => "flavor_show")
       h[:title] = _("Show this VM's %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => 'flavor', :action => 'show', :id => flavor)
+      h[:link]  = url_for_only_path(:controller => 'flavor', :action => 'show', :id => flavor)
     end
     h
   end
@@ -309,7 +345,7 @@ module VmHelper::TextualSummary
     h = {:label => label, :icon => "product product-template", :value => (vm_template.nil? ? _("None") : vm_template.name)}
     if vm_template && role_allows?(:feature => "miq_template_show")
       h[:title] = _("Show this VM's %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => 'miq_template', :action => 'show', :id => vm_template)
+      h[:link]  = url_for_only_path(:controller => 'miq_template', :action => 'show', :id => vm_template)
     end
     h
   end
@@ -325,7 +361,7 @@ module VmHelper::TextualSummary
       h[:title] = _("Show this Image's parent")
       h[:explorer] = true
       url, action = set_controller_action
-      h[:link]  = url_for(:controller => url, :action => action, :id => parent_vm)
+      h[:link]  = url_for_only_path(:controller => url, :action => action, :id => parent_vm)
     end
     h
   end
@@ -336,7 +372,7 @@ module VmHelper::TextualSummary
     h = {:label => label, :icon => "product-orchestration_stack", :value => (stack.nil? ? _("None") : stack.name)}
     if stack && role_allows?(:feature => "orchestration_stack_show")
       h[:title] = _("Show this VM's %{label} '%{name}'") % {:label => label, :name => stack.name}
-      h[:link]  = url_for(:controller => 'orchestration_stack', :action => 'show', :id => stack)
+      h[:link]  = url_for_only_path(:controller => 'orchestration_stack', :action => 'show', :id => stack)
     end
     h
   end
@@ -349,7 +385,7 @@ module VmHelper::TextualSummary
     else
       h[:value] = service.name
       h[:title] = _("Show this Service")
-      h[:link]  = url_for(:controller => 'service', :action => 'show', :id => service)
+      h[:link]  = url_for_only_path(:controller => 'service', :action => 'show', :id => service)
     end
     h
   end
@@ -361,7 +397,7 @@ module VmHelper::TextualSummary
     if num > 0 && role_allows?(:feature => "security_group_show_list")
       h[:title] = _("Show all %{label}") % {:label => label}
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'security_groups', :id => @record, :display => "security_groups")
+      h[:link]  = url_for_only_path(:action => 'security_groups', :id => @record, :display => "security_groups")
     end
     h
   end
@@ -373,7 +409,7 @@ module VmHelper::TextualSummary
     if num > 0 && role_allows?(:feature => "floating_ip_show_list")
       h[:title] = _("Show all %{label}") % {:label => label}
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'floating_ips', :id => @record, :display => "floating_ips")
+      h[:link]  = url_for_only_path(:action => 'floating_ips', :id => @record, :display => "floating_ips")
     end
     h
   end
@@ -385,7 +421,7 @@ module VmHelper::TextualSummary
     if num > 0 && role_allows?(:feature => "network_router_show_list")
       h[:title] = _("Show all %{label}") % {:label => label}
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'network_routers', :id => @record, :display => "network_routers")
+      h[:link]  = url_for_only_path(:action => 'network_routers', :id => @record, :display => "network_routers")
     end
     h
   end
@@ -397,7 +433,7 @@ module VmHelper::TextualSummary
     if num > 0 && role_allows?(:feature => "cloud_subnet_show_list")
       h[:title] = _("Show all %{label}") % {:label => label}
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'cloud_subnets', :id => @record, :display => "cloud_subnets")
+      h[:link]  = url_for_only_path(:action => 'cloud_subnets', :id => @record, :display => "cloud_subnets")
     end
     h
   end
@@ -409,7 +445,7 @@ module VmHelper::TextualSummary
     if num > 0 && role_allows?(:feature => "network_port_show_list")
       h[:title] = _("Show all %{label}") % {:label => label}
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'network_ports', :id => @record, :display => "network_ports")
+      h[:link]  = url_for_only_path(:action => 'network_ports', :id => @record, :display => "network_ports")
     end
     h
   end
@@ -423,7 +459,7 @@ module VmHelper::TextualSummary
     if num > 0 && role_allows?(:feature => "load_balancer_show_list")
       h[:title] = _("Show all %{label}") % {:label => label}
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'load_balancers', :id => @record, :display => "load_balancers")
+      h[:link]  = url_for_only_path(:action => 'load_balancers', :id => @record, :display => "load_balancers")
     end
     h
   end
@@ -435,7 +471,7 @@ module VmHelper::TextualSummary
     if num > 0 && role_allows?(:feature => "cloud_network_show_list")
       h[:title] = _("Show all %{label}") % {:label => label}
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'cloud_networks', :id => @record, :display => "cloud_networks")
+      h[:link]  = url_for_only_path(:action => 'cloud_networks', :id => @record, :display => "cloud_networks")
     end
     h
   end
@@ -446,7 +482,7 @@ module VmHelper::TextualSummary
     h = {:label => label, :icon => "pficon pficon-cloud-tenant", :value => (cloud_tenant.nil? ? _("None") : cloud_tenant.name)}
     if cloud_tenant && role_allows?(:feature => "cloud_tenant_show")
       h[:title] = _("Show this VM's %{label}") % {:label => label}
-      h[:link]  = url_for(:controller => 'cloud_tenant', :action => 'show', :id => cloud_tenant)
+      h[:link]  = url_for_only_path(:controller => 'cloud_tenant', :action => 'show', :id => cloud_tenant)
     end
     h
   end
@@ -458,7 +494,7 @@ module VmHelper::TextualSummary
     if num > 0 && role_allows?(:feature => "cloud_volume_show_list")
       h[:title]    = _("Show all Cloud Volumes attached to this VM.")
       h[:explorer] = true
-      h[:link]     = url_for(:action => 'cloud_volumes', :id => @record, :display => "cloud_volumes")
+      h[:link]     = url_for_only_path(:action => 'cloud_volumes', :id => @record, :display => "cloud_volumes")
     end
     h
   end
@@ -471,7 +507,7 @@ module VmHelper::TextualSummary
       :title    => _("Show virtual machine genealogy"),
       :explorer => true,
       :spinner  => true,
-      :link     => url_for(
+      :link     => url_for_only_path(
         :controller => controller.controller_name,
         :action     => 'show',
         :id         => @record,
@@ -486,7 +522,7 @@ module VmHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the User defined on this VM", "Show the Users defined on this VM", num)
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'users', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:action => 'users', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -497,7 +533,7 @@ module VmHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Group defined on this VM", "Show the Groups defined on this VM", num)
       h[:explorer] = true
-      h[:link]  = url_for(:action => 'groups', :id => @record, :db => controller.controller_name)
+      h[:link]  = url_for_only_path(:action => 'groups', :id => @record, :db => controller.controller_name)
     end
     h
   end
@@ -512,7 +548,7 @@ module VmHelper::TextualSummary
     if num > 0
       h[:title] = _("Show the %{label} installed on this VM") % {:label => label}
       h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'guest_applications', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'guest_applications', :id => @record)
     end
     h
   end
@@ -525,7 +561,7 @@ module VmHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Win32 Service installed on this VM", "Show the Win32 Services installed on this VM", num)
       h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'win32_services', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'win32_services', :id => @record)
     end
     h
   end
@@ -539,7 +575,7 @@ module VmHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Kernel Driver installed on this VM", "Show the Kernel Drivers installed on this VM", num)
       h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'kernel_drivers', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'kernel_drivers', :id => @record)
     end
     h
   end
@@ -554,7 +590,7 @@ module VmHelper::TextualSummary
       h[:title] = n_("Show the File System Driver installed on this VM",
                      "Show the File System Drivers installed on this VM", num)
       h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'filesystem_drivers', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'filesystem_drivers', :id => @record)
     end
     h
   end
@@ -568,7 +604,7 @@ module VmHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show the Registry Item installed on this VM", "Show the Registry Items installed on this VM", num)
       h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'registry_items', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'registry_items', :id => @record)
     end
     h
   end
@@ -579,7 +615,7 @@ module VmHelper::TextualSummary
     if num > 0
       h[:title] = n_("Show disk on this VM", "Show disks on this VM", num)
       h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "disks")
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "disks")
     end
     h
   end
@@ -662,7 +698,7 @@ module VmHelper::TextualSummary
       h[:value] = _("From %{time} Ago") % {:time => time_ago_in_words(date.in_time_zone(Time.zone)).titleize}
       h[:title] = _("Show Running Processes on this VM")
       h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'processes', :id => @record)
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'processes', :id => @record)
     end
     h
   end
@@ -673,55 +709,7 @@ module VmHelper::TextualSummary
     if num > 0
       h[:title] = _("Show Event Logs on this VM")
       h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'event_logs', :id => @record)
-    end
-    h
-  end
-
-  def textual_storage_systems
-    num = @record.storage_systems_size
-    label = ui_lookup(:tables => "ontap_storage_system")
-    h = {:label => label, :icon => "pficon pficon-volume", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_storage_system_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_storage_systems")
-    end
-    h
-  end
-
-  def textual_storage_volumes
-    num = @record.storage_volumes_size
-    label = ui_lookup(:tables => "ontap_storage_volume")
-    h = {:label => label, :icon => "pficon pficon-volume", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_storage_volume_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_storage_volumes")
-    end
-    h
-  end
-
-  def textual_file_shares
-    num = @record.file_shares_size
-    label = ui_lookup(:tables => "ontap_file_share")
-    h = {:label => label, :icon => "product product-file_share", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_file_share_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_file_shares")
-    end
-    h
-  end
-
-  def textual_logical_disks
-    num = @record.logical_disks_size
-    label = ui_lookup(:tables => "ontap_logical_disk")
-    h = {:label => label, :icon => "fa fa-hdd-o", :value => num}
-    if num > 0 && role_allows?(:feature => "ontap_logical_disk_show_list")
-      h[:title] = _("Show all %{label}") % {:label => label}
-      h[:explorer] = true
-      h[:link]  = url_for(:controller => controller.controller_name, :action => 'show', :id => @record, :display => "ontap_logical_disks")
+      h[:link]  = url_for_only_path(:controller => controller.controller_name, :action => 'event_logs', :id => @record)
     end
     h
   end
@@ -759,13 +747,13 @@ module VmHelper::TextualSummary
   def textual_miq_custom_attributes
     attrs = @record.miq_custom_attributes
     return nil if attrs.blank?
-    attrs.collect { |a| {:label => a.name, :value => a.value} }
+    attrs.sort_by(&:name).collect { |a| {:label => a.name, :value => a.value} }
   end
 
   def textual_ems_custom_attributes
     attrs = @record.ems_custom_attributes
     return nil if attrs.blank?
-    attrs.collect { |a| {:label => a.name, :value => a.value} }
+    attrs.sort_by(&:name).collect { |a| {:label => a.name, :value => a.value} }
   end
 
   def textual_compliance_history
@@ -830,7 +818,7 @@ module VmHelper::TextualSummary
          :value    => (@devices.nil? || @devices.empty? ? _("None") : @devices.length)}
     if @devices.length > 0
       h[:title] = _("Show VMs devices")
-      h[:link]  = url_for(:action => 'show', :id => @record, :display => 'devices')
+      h[:link]  = url_for_only_path(:action => 'show', :id => @record, :display => 'devices')
     end
     h
   end

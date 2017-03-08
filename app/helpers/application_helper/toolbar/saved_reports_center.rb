@@ -17,14 +17,15 @@ class ApplicationHelper::Toolbar::SavedReportsCenter < ApplicationHelper::Toolba
       :items => [
         button(
           :report_only,
-          'product product-report fa-lg',
+          'fa fa-file-text-o fa-lg',
           t = N_('Show full screen Report'),
           t,
           :enabled => false,
           :onwhen  => "1",
           :url     => "/report_only",
           :popup   => true,
-          :confirm => N_("This will show the entire report (all rows) in your browser.  Do you want to proceed?")),
+          :confirm => N_("This will show the entire report (all rows) in your browser.  Do you want to proceed?"),
+          :klass   => ApplicationHelper::Button::ReportOnly),
         button(
           :saved_report_delete,
           'pficon pficon-delete fa-lg',

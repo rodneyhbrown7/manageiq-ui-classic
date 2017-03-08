@@ -7,7 +7,7 @@
     %table.table.table-striped.table-bordered
       %thead
         %tr
-          %th.narrow
+          %th.table-view-pf-select
             %input{:type => 'checkbox', :id => 'check-all'}
           %th
             = _('Widget name')
@@ -16,14 +16,14 @@
       %tbody
         - @import.each do |item|
           %tr
-            %td.narrow
+            %td.table-view-pf-select
               %input{:type => 'checkbox', :name => 'widgets_to_import[]', :value => item[:name]}
             %td.treegrid-node
               = item[:name]
             %td
-              %img{:src => item[:status_icon]}
+              %img{:src => status_icon_image_path(item[:exists])}
               &nbsp;
-              = item[:status]
+              = status_description(item[:exists])
     = hidden_field_tag(:import_file_upload_id, @import_file_upload_id)
 
     .pull-right

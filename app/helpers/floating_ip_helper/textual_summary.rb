@@ -6,11 +6,11 @@ module FloatingIpHelper::TextualSummary
   #
 
   def textual_group_properties
-    %i(address type fixed_ip_address status)
+    TextualGroup.new(_("Properties"), %i(address type fixed_ip_address status))
   end
 
   def textual_group_relationships
-    %i(parent_ems_cloud ems_network cloud_tenant instance network_port)
+    TextualGroup.new(_("Relationships"), %i(parent_ems_cloud ems_network cloud_tenant instance network_port))
   end
 
   #
@@ -43,7 +43,7 @@ module FloatingIpHelper::TextualSummary
     h        = {:label => label, :icon => "pficon pficon-virtual-machine"}
     if instance && role_allows?(:feature => "vm_show")
       h[:value] = instance.name
-      h[:link]  = url_for(:controller => 'vm_cloud', :action => 'show', :id => instance.id)
+      h[:link]  = url_for_only_path(:controller => 'vm_cloud', :action => 'show', :id => instance.id)
       h[:title] = _("Show %{label}") % {:label => label}
     end
     h

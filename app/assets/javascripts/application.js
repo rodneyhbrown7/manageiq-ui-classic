@@ -16,6 +16,7 @@
 //= require moment
 //= require moment-strftime/lib/moment-strftime
 //= require moment-timezone
+//= require moment-duration-format
 //= require sprintf
 //= require numeral
 //= require cable
@@ -25,6 +26,7 @@
 //= require_tree ./angular_modules/
 //= require_tree ./controllers/
 //= require_tree ./directives/
+//= require_tree ./components/
 //= require_tree ./services/
 //= require d3
 //= require c3
@@ -37,18 +39,6 @@
 //= require git_import
 //= require automate_import_export
 //= require dialog_field_refresh
-//= require excanvas
-//= require jquery.jqplot
-//= require jqplot-plugins/jqplot.pieRenderer
-//= require jqplot-plugins/jqplot.donutRenderer
-//= require jqplot-plugins/jqplot.barRenderer
-//= require jqplot-plugins/jqplot.categoryAxisRenderer
-//= require jqplot-plugins/jqplot.highlighter
-//= require jqplot-plugins/jqplot.cursor
-//= require jqplot-plugins/jqplot.enhancedLegendRenderer
-//= require jqplot-plugins/jqplot.canvasAxisTickRenderer
-//= require jqplot-plugins/jqplot.canvasTextRenderer
-//= require miq_jqplot
 //= require miq_c3_config
 //= require jquery-ui
 //= require bootstrap
@@ -87,6 +77,8 @@
 //= require qs
 //= require miq_timeline
 // Bower packages
+//= require angular-ui-sortable
+//= require angular-dragdrop
 //= require manageiq-ui-components/dist/js/ui-components
 //= require rx-angular/dist/rx.angular
 //= require patternfly-timeline/dist/timeline

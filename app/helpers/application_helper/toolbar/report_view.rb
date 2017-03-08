@@ -2,7 +2,7 @@ class ApplicationHelper::Toolbar::ReportView < ApplicationHelper::Toolbar::Basic
   button_group('ght_main', [
     twostate(
       :view_graph,
-      'product product-chart',
+      'fa fa-pie-chart',
       N_('Graph View'),
       nil,
       :url       => "explorer",
@@ -18,7 +18,7 @@ class ApplicationHelper::Toolbar::ReportView < ApplicationHelper::Toolbar::Basic
       :klass     => ApplicationHelper::Button::ViewGHT),
     twostate(
       :view_tabular,
-      'product product-report',
+      'fa fa-file-text-o',
       N_('Tabular View'),
       nil,
       :url       => "explorer",
@@ -38,19 +38,21 @@ class ApplicationHelper::Toolbar::ReportView < ApplicationHelper::Toolbar::Basic
           'fa fa-file-text-o fa-lg',
           N_('Download this report in text format'),
           N_('Download as Text'),
-          :url_parms => "?render_type=txt"),
+          :url_parms => "?render_type=txt",
+          :klass     => ApplicationHelper::Button::RenderReport),
         button(
           :render_report_csv,
           'fa fa-file-text-o fa-lg',
           N_('Download this report in CSV format'),
           N_('Download as CSV'),
-          :url_parms => "?render_type=csv"),
+          :url_parms => "?render_type=csv",
+          :klass     => ApplicationHelper::Button::RenderReport),
         button(
           :render_report_pdf,
           'fa fa-file-pdf-o fa-lg',
           N_('Download this report in PDF format'),
           N_('Download as PDF'),
-          :klass     => ApplicationHelper::Button::Pdf,
+          :klass     => ApplicationHelper::Button::RenderReportPdf,
           :url_parms => "?render_type=pdf"),
       ]
     ),

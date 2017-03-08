@@ -122,6 +122,40 @@ describe VmOrTemplateController do
       expect(response.status).to eq(302)
       expect(response).to redirect_to(:controller => "dashboard", :action => 'show')
     end
+
+    context 'set session[:snap_selected]' do
+      before :each do
+        tree_hash = {
+          :trees         => {
+            :vandt_tree => {
+              :active_node => "v-#{@vm.id}"
+            }
+          },
+          :active_tree   => :vandt_tree,
+          :active_accord => :vandt
+        }
+        session[:sandboxes] = {'vm_or_template' => tree_hash}
+        @lastaction = 'show'
+        @display = 'snapshot_info'
+        @request.env['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest'
+      end
+
+      it 'to snap_selected.id if a Snapshot exists' do
+        @snapshot = FactoryGirl.create(:snapshot,
+                                       :vm_or_template_id => @vm.id,
+                                       :name              => 'EvmSnapshot',
+                                       :description       => 'Some Description')
+        @vm.snapshots = [@snapshot]
+        post :show, :params => {:id => @vm.id, :display => 'snapshot_info'}
+        expect(session[:snap_selected]).to eq(@snapshot.id)
+      end
+
+      it 'to nil if Snapshot does not exist' do
+        session[:snap_selected] = '21'
+        get :show, :params => {:id => @vm.id, :display => 'snapshot_info'}
+        expect(session[:snap_selected]).to be(nil)
+      end
+    end
   end
 
   describe '#console_after_task' do
@@ -223,6 +257,18 @@ describe VmOrTemplateController do
       expect(controller.parent_folder_id(template_infra)).to eq(TreeBuilder.build_node_cid(template_infra.ext_management_system))
     end
 
+    it 'returns id of Datacenter folder for infra VM/Template without blue folder but with Datacenter parent' do
+      datacenter = FactoryGirl.create(:datacenter, :hidden => true)
+      vm_infra_datacenter = FactoryGirl.create(:vm_infra, :ext_management_system => FactoryGirl.create(:ems_infra))
+      template_infra_datacenter = FactoryGirl.create(:template_infra, :ext_management_system => FactoryGirl.create(:ems_infra))
+      vm_infra_datacenter.with_relationship_type("ems_metadata") { vm_infra_datacenter.parent = datacenter }
+      allow(vm_infra_datacenter).to receive(:parent_datacenter).and_return(datacenter)
+      template_infra_datacenter.with_relationship_type("ems_metadata") { template_infra_datacenter.parent = datacenter }
+      allow(template_infra_datacenter).to receive(:parent_datacenter).and_return(datacenter)
+      expect(controller.parent_folder_id(vm_infra_datacenter)).to eq(TreeBuilder.build_node_cid(datacenter.id, 'Datacenter'))
+      expect(controller.parent_folder_id(template_infra_datacenter)).to eq(TreeBuilder.build_node_cid(datacenter.id, 'Datacenter'))
+    end
+
     it 'returns id of blue folder for VM/Template with one' do
       folder = FactoryGirl.create(:ems_folder)
       vm_infra_folder = FactoryGirl.create(:vm_infra, :ext_management_system => FactoryGirl.create(:ems_infra))
@@ -263,4 +309,7 @@ describe VmOrTemplateController do
       vm_common.resolve_node_info("v-#{@vm_arch[:id]}")
     end
   end
+
+  include_examples '#download_summary_pdf', :vm_cloud
+  include_examples '#download_summary_pdf', :vm_infra
 end

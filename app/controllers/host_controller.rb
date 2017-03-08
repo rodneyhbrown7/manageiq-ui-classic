@@ -5,10 +5,17 @@ class HostController < ApplicationController
   after_action :set_session_data
 
   include Mixins::GenericListMixin
+  include Mixins::MoreShowActions
 
   def show_association(action, display_name, listicon, method, klass, association = nil, conditions = nil)
     set_config(identify_record(params[:id]))
     super
+  end
+
+  def download_summary_pdf
+    super do
+      set_config(@record)
+    end
   end
 
   def show
@@ -26,12 +33,12 @@ class HostController < ApplicationController
     @showtype = "config"
     set_config(@host)
     case @display
-    when "download_pdf", "main", "summary_only"
+    when "main", "summary_only"
       get_tagdata(@host)
       drop_breadcrumb({:name => _("Hosts"), :url => "/host/show_list?page=#{@current_page}&refresh=y"}, true)
       drop_breadcrumb(:name => _("%{name} (Summary)") % {:name => @host.name }, :url => "/host/show/#{@host.id}")
       @showtype = "main"
-      set_summary_pdf_data if ["download_pdf", "summary_only"].include?(@display)
+      set_summary_pdf_data if @display == "summary_only"
 
     when "devices"
       drop_breadcrumb(:name => _("%{name} (Devices)") % {:name => @host.name},
@@ -53,36 +60,13 @@ class HostController < ApplicationController
       self.x_active_tree = :network_tree
 
     when "performance"
-      @showtype = "performance"
-      drop_breadcrumb(:name => _("%{name} Capacity & Utilization") % {:name => @host.name},
-                      :url  => "/host/show/#{@host.id}?display=#{@display}&refresh=n")
-      perf_gen_init_options               # Intialize perf chart options, charts will be generated async
+      show_performance
 
     when "timeline"
-      @showtype = "timeline"
-      session[:tl_record_id] = params[:id] if params[:id]
-      @record = find_by_id_filtered(Host, session[:tl_record_id])
-      @timeline = @timeline_filter = true
-      @lastaction = "show_timeline"
-      tl_build_timeline                       # Create the timeline report
-      drop_breadcrumb(:name => _("Timelines"), :url => "/host/show/#{@record.id}?refresh=n&display=timeline")
+      show_timeline
 
     when "compliance_history"
-      count = params[:count] ? params[:count].to_i : 10
-      @ch_tree = TreeBuilderComplianceHistory.new(:ch_tree, :ch, @sb, true, @host)
-      session[:ch_tree] = @ch_tree.tree_nodes
-
-      session[:tree_name] = "ch_tree"
-      session[:squash_open] = (count == 1)
-      drop_breadcrumb({:name => @host.name, :url => "/host/show/#{@host.id}"}, true)
-      if count == 1
-        drop_breadcrumb(:name => _("%{name} (Latest Compliance Check)") % {:name => @host.name},
-                        :url  => "/host/show/#{@host.id}?display=#{@display}")
-      else
-        drop_breadcrumb(:name => _("%{name} (Compliance History - Last %{number} Checks)") % {:name => @host.name,:number => count},
-                        :url  => "/host/show/#{@host.id}?display=#{@display}")
-      end
-      @showtype = @display
+      show_compliance_history
 
     when "storage_adapters"
       drop_breadcrumb(:name => _("%{name} (Storage Adapters)") % {:name => @host.name},
@@ -116,34 +100,6 @@ class HostController < ApplicationController
                       :url  => "/host/show/#{@host.id}?display=storages")
       @view, @pages = get_view(Storage, :parent => @host) # Get the records (into a view) and the paginator
       @showtype = "storages"
-
-    when "ontap_logical_disks"
-      drop_breadcrumb(:name => _("%{name} (All %{tables})") % {:name   => @host.name,
-                                                               :tables => ui_lookup(:tables => "ontap_logical_disk")},
-                      :url  => "/host/show/#{@host.id}?display=ontap_logicals_disks")
-      @view, @pages = get_view(OntapLogicalDisk, :parent => @host, :parent_method => :logical_disks)  # Get the records (into a view) and the paginator
-      @showtype = "ontap_logicals_disks"
-
-    when "ontap_storage_systems"
-      drop_breadcrumb(:name => _("%{name} (All %{tables})") % {:name   => @host.name,
-                                                               :tables => ui_lookup(:tables => "ontap_storage_system")},
-                      :url  => "/host/show/#{@host.id}?display=ontap_storage_systems")
-      @view, @pages = get_view(OntapStorageSystem, :parent => @host, :parent_method => :storage_systems)  # Get the records (into a view) and the paginator
-      @showtype = "ontap_storage_systems"
-
-    when "ontap_storage_volumes"
-      drop_breadcrumb(:name => _("%{name} (All %{tables})") % {:name   => @host.name,
-                                                               :tables => ui_lookup(:tables => "ontap_storage_volume")},
-                      :url  => "/host/show/#{@host.id}?display=ontap_storage_volumes")
-      @view, @pages = get_view(OntapStorageVolume, :parent => @host, :parent_method => :storage_volumes)  # Get the records (into a view) and the paginator
-      @showtype = "ontap_storage_volumes"
-
-    when "ontap_file_shares"
-      drop_breadcrumb(:name => _("%{name} (All %{tables})") % {:name   => @host.name,
-                                                               :tables => ui_lookup(:tables => "ontap_file_share")},
-                      :url  => "/host/show/#{@host.id}?display=ontap_file_shares")
-      @view, @pages = get_view(OntapFileShare, :parent => @host, :parent_method => :file_shares)  # Get the records (into a view) and the paginator
-      @showtype = "ontap_file_shares"
     end
     @lastaction = "show"
     session[:tl_record_id] = @record.id
@@ -406,7 +362,7 @@ class HostController < ApplicationController
       rescue Net::SSH::HostKeyMismatch => e   # Capture the Host key mismatch from the verify
         render :update do |page|
           page << javascript_prologue
-          new_url = url_for(:action => "update", :button => "validate", :type => params[:type], :remember_host => "true", :escape => false)
+          new_url = url_for_only_path(:action => "update", :button => "validate", :type => params[:type], :remember_host => "true", :escape => false)
           page << "if (confirm('The Host SSH key has changed, do you want to accept the new key?')) miqAjax('#{new_url}');"
         end
         return
@@ -589,7 +545,18 @@ class HostController < ApplicationController
     render :json => host_hash
   end
 
-  private ############################
+  private
+
+  def textual_group_list
+    [
+      %i(properties relationships),
+      %i(
+        compliance security configuration diagnostics smart_management miq_custom_attributes
+        ems_custom_attributes authentications cloud_services openstack_hardware_status openstack_service_status
+      )
+    ]
+  end
+  helper_method :textual_group_list
 
   def breadcrumb_name(_model)
     title_for_hosts
@@ -674,7 +641,7 @@ class HostController < ApplicationController
     page = params[:page].nil? ? 1 : params[:page].to_i
     @current_page = page
 
-    @items_per_page = @settings[:perpage][@gtl_type.to_sym]   # Get the per page setting for this gtl type
+    @items_per_page = settings(:perpage, @gtl_type.to_sym) # Get the per page setting for this gtl type
     @host_pages, @hosts = paginate(:hosts, :per_page => @items_per_page, :order => @col_names[get_sort_col] + " " + @sortdir)
   end
 

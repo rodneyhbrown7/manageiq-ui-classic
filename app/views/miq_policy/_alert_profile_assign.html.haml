@@ -1,4 +1,4 @@
-- url = url_for(:action => 'alert_profile_assign_changed')
+- url = url_for_only_path(:action => 'alert_profile_assign_changed')
 #alert_profile_assign_div
   = render :partial => "layouts/flash_msg"
   %h3
@@ -14,7 +14,7 @@
         = _('Assign To')
       .col-md-8
         = select_tag('chosen_assign_to',
-          options_for_select([["<#{_('Nothing')}>", nil]] + ASSIGN_TOS[@alert_profile.mode].map { |k, v| [v.kind_of?(PostponedTranslation) ? v.translate.to_s : _(v).to_s, k.to_s] }.sort, @assign[:new][:assign_to]),
+          options_for_select([["<#{_('Nothing')}>", nil]] + ASSIGN_TOS[@alert_profile.mode].map { |k, v| [_(v).to_s, k.to_s] }.sort, @assign[:new][:assign_to]),
           :class => "selectpicker")
         :javascript
           miqInitSelectPicker();
