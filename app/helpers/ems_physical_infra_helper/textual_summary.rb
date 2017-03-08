@@ -125,7 +125,6 @@ module EmsPhysicalInfraHelper::TextualSummary
     h
   end
 
-<<<<<<< HEAD
   def textual_used_tenants
     return nil if !@record.respond_to?(:cloud_tenants) || !@record.cloud_tenants
 
