@@ -175,7 +175,7 @@ module QuadiconHelper
   end
 
   def img_for_health_state(item)
-    case item.healthState
+    case item.health_state
     when "Valid"   then "100/healthstate-normal.png"
     when "Critical" then "svg/healthstate-critical.svg"
     when "None"     then "svg/healthstate-unknown.svg"
@@ -520,7 +520,7 @@ module QuadiconHelper
       output << flobj_img_simple( "layout/base.png")
 
       output << flobj_p_simple("a72", (item.host ? 1 : 0 )) #item.host&.size)
-      output << flobj_img_simple("svg/currentstate-#{h(item.powerState.downcase)}.svg", "b72")
+      output << flobj_img_simple("svg/currentstate-#{h(item.power_state.downcase)}.svg", "b72")
       output << flobj_img_simple( img_for_physical_vendor(item), "c72")
       output << flobj_img_simple( img_for_health_state(item), "d72")
       output << flobj_img_simple( '100/shield.png', "g72") unless item.get_policies.empty?
